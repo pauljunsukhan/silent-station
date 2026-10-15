@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Silent Station</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Code+Pro:wght@400;700&display=swap">
+<style>
+/* Layout: a Netflix shape (who's recording → sets of pieces → a fullscreen 4:3 stage with a HUD → library),
+   drawn in the paper-white, black-banner, lilac-link language of celeste.exposed, with screentone and
+   scanlines over dithered jellyfish-blue imagery for the immersive screens. One visual world, by choice. */
+:root{
+  --paper:#fbfaf7; --ink:#141414; --mute:#8a8a8a; --line:#e3dfd6; --soft:#f1eee7;
+  --lilac:#8888ff; --lilac-deep:#4444cc; --lilac-soft:#ececff;
+  --jelly:#2b40d8; --jelly-deep:#0a1257; --jelly-ink:#060a33; --violet:#d9a9ea; --foam:#eef0ff;
+  --warn:#e3a33a; --stop:#cc4444; --hud:rgba(6,10,51,.55); --hudline:rgba(170,176,255,.28);
+  --serif:"Libre Baskerville",Georgia,"Times New Roman",serif;
+  --mono:"Source Code Pro",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:16px;line-height:1.6;overflow-x:hidden}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+a{color:var(--lilac);text-decoration:none}
+a:hover{color:var(--lilac-deep)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input,select,textarea{font:inherit}
+button:focus-visible,[tabindex]:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--lilac);outline-offset:3px}
+.mono{font-family:var(--mono);font-size:12.5px;letter-spacing:.02em}
+.mute{color:var(--mute)}
+h1,h2,h3{font-weight:700;line-height:1.2;margin:0;text-wrap:balance}
+#app{min-height:100%;display:flex;flex-direction:column}
+
+/* celeste-style banner strip */
+#banner{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;flex-direction:column;pointer-events:none}
+.strip{background:#000;color:#fff;padding:.55em .9em;font-size:15px;line-height:1.5;display:flex;gap:.6em;align-items:baseline;pointer-events:auto;animation:dropin .25s ease-out}
+.strip a,.strip button{color:var(--lilac);font-family:var(--serif)}
+.strip a:hover,.strip button:hover{color:#bbbbff}
+.strip .bulb{font-family:var(--mono);font-size:13px;color:#bbb}
+.strip.warn{background:#1a1000}
+.strip.stop{background:#2a0000}
+@keyframes dropin{from{transform:translateY(-100%)}to{transform:none}}
+
+/* top nav */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:1.2em;padding:.8em 1.4em;background:var(--paper);border-bottom:1px solid var(--line)}
+.top .brand{font-weight:700;font-size:20px;letter-spacing:.01em;user-select:none;cursor:default}
+.top .brand small{font-weight:400;color:var(--mute);font-size:13px;margin-left:.4em;font-family:var(--mono)}
+.top .brand .leaf{color:var(--lilac)}
+.top nav{display:flex;gap:1em}
+.top nav button{color:var(--mute);padding:.1em .2em;border-bottom:2px solid transparent}
+.top nav button.on{color:var(--ink);border-bottom-color:var(--lilac)}
+.dots{cursor:pointer;padding:.2em .6em;border-radius:2em;border:1px solid transparent}
+.dots:hover{border-color:var(--line);background:#fff}
+.wired{position:fixed;top:58px;right:1.4em;z-index:30;width:min(600px,calc(100vw - 2.8em));max-height:calc(100vh - 80px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px -24px rgba(43,64,216,.55);padding:.9em 1.1em 1em;animation:fade .2s}
+.wired .wh{display:flex;gap:.8em;align-items:baseline;margin-bottom:.4em}
+.wired .wh b{font-size:18px}
+.wired .wh .link{margin-left:auto;font-size:13px}
+.wrow{display:grid;grid-template-columns:84px 1fr auto;gap:.8em;align-items:center;padding:.55em 0;border-top:1px solid var(--line)}
+.wrow .th{width:84px;height:52px;border-radius:6px;background:#000;overflow:hidden;position:relative}
+.wrow .th canvas,.wrow .th img{width:100%;height:100%;object-fit:cover;display:block}
+.wrow .th.none{background:var(--soft);display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:var(--mute)}
+.wrow .n{font-weight:700;display:flex;gap:.5em;align-items:center;font-size:14px}
+.wrow .s{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.wrow .s.bad{color:#8a5a00}
+.wrow .act{font-family:var(--mono);font-size:12px;color:var(--lilac);white-space:nowrap;text-align:right}
+.wrow .act:hover{color:var(--lilac-deep)}
+.pill.clean{background:var(--lilac-soft);color:var(--lilac-deep)}.pill.fine{background:var(--soft);color:#555}.pill.rough{background:#fff2dc;color:#8a5a00}
+.chips{display:flex;gap:.4em;flex-wrap:wrap;margin-top:1em;align-items:center}
+.chips button{font-family:var(--mono);font-size:11px;padding:.15em .6em;border-radius:3px;border:1px solid var(--line);color:var(--mute)}
+.chips button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.truth{grid-column:1/-1;border-top:1px solid var(--line);padding-top:.8em;margin-top:.2em;display:grid;grid-template-columns:1fr 1fr;gap:.9em 1.2em}
+.truth .h{grid-column:1/-1;font-weight:700}
+.truth .h small{font-family:var(--mono);font-weight:400;color:var(--mute);margin-left:.5em}
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6em}
+.ref{position:relative;aspect-ratio:4/3;border:1px dashed var(--mute);border-radius:8px;overflow:hidden;display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--mute);cursor:pointer;text-align:center;padding:.4em;background:var(--paper)}
+.ref img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ref span{position:relative;z-index:2;background:rgba(251,250,247,.88);padding:.1em .4em;border-radius:3px}
+.ref input{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3}
+.drafted{font-family:var(--mono);font-size:11px;color:var(--lilac-deep);background:var(--lilac-soft);padding:.1em .5em;border-radius:3px}
+.gradebar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--soft);margin-top:.3em}
+.gradebar i{display:block;height:100%}
+.gradebar .c{background:var(--lilac)}.gradebar .f{background:#c9c6ff}.gradebar .r{background:var(--warn)}
+.probe-row{display:grid;grid-template-columns:1fr;gap:.6em;padding:.8em .9em;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:14px}
+.probe-row textarea{font-family:var(--serif);font-size:13px;border:1px solid var(--line);border-radius:4px;padding:.3em .4em;min-height:3.6em;resize:vertical;width:100%}
+.top .spacer{flex:1}
+.chip{display:inline-flex;align-items:center;gap:.5em;padding:.25em .7em .25em .3em;border:1px solid var(--line);border-radius:2em;background:#fff;font-size:14px}
+.chip img{width:26px;height:26px;border-radius:50%;object-fit:cover;filter:saturate(1.2) contrast(1.1)}
+.dots{display:flex;gap:.5em;align-items:center;font-family:var(--mono);font-size:12px;color:var(--mute)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--lilac);display:inline-block;vertical-align:middle;margin-right:.3em;transition:background .3s}
+.dot.warn{background:var(--warn)}
+.dot.stop{background:var(--stop);animation:pulse 1.2s infinite}
+.dot.wait{background:transparent;border:2px solid var(--line)}
+@keyframes pulse{50%{opacity:.35}}
+
+/* screens */
+.screen{display:none;flex:1;flex-direction:column}
+.screen.on{display:flex;animation:fade .3s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.wrap{width:100%;max-width:1180px;margin:0 auto;padding-block:1.5em 4em;padding-inline:1.4em}
+
+/* screentone, scanlines, glitch: the serial experiments filter */
+.tone{position:relative;overflow:hidden}
+.tone::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background-image:radial-gradient(circle,rgba(0,0,0,.45) .55px,transparent .9px);background-size:3px 3px;mix-blend-mode:multiply;opacity:.75}
+.tone.light::after{background-image:radial-gradient(circle,rgba(255,255,255,.55) .55px,transparent .9px);mix-blend-mode:screen;opacity:.55}
+.crt::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);mix-blend-mode:multiply;opacity:.7}
+.art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:contrast(1.15) saturate(1.25)}
+.glitchy:hover .art{animation:shift 2.4s steps(1,end) infinite}
+@keyframes shift{0%,84%{transform:none;filter:contrast(1.15) saturate(1.25)}85%{transform:translateX(-4px);filter:contrast(1.3) saturate(1.6) hue-rotate(12deg)}88%{transform:translateX(3px) translateY(1px);filter:contrast(1.15) saturate(1.25)}90%,93%{transform:none}94%{transform:translateX(5px);filter:contrast(1.4) saturate(.6)}96%,100%{transform:none;filter:contrast(1.15) saturate(1.25)}}
+
+/* who's recording */
+#s-who .wrap{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:1.4em;padding-top:4em}
+.faces{display:flex;flex-wrap:wrap;justify-content:center;gap:1.6em;margin-top:1em}
+.face{width:170px;display:flex;flex-direction:column;align-items:center;gap:.6em;transition:transform .2s}
+.face:hover,.face:focus-visible{transform:translateY(-4px)}
+.face .pic{width:150px;height:150px;border-radius:14px;overflow:hidden;position:relative;background:var(--jelly-deep);box-shadow:0 1px 0 var(--line)}
+.face .pic .init{position:absolute;inset:0;z-index:2;display:grid;place-items:center;color:#fff;font-weight:700;font-size:54px;text-shadow:0 2px 0 var(--jelly-deep);mix-blend-mode:screen}
+.face .name{font-weight:700}
+.face .sub{font-family:var(--mono);font-size:12px;color:var(--mute)}
+.face.new .pic{background:var(--soft);border:1px dashed var(--mute)}
+.face.new .init{color:var(--mute);mix-blend-mode:normal;font-size:48px;text-shadow:none;font-weight:400}
+.greet{font-size:15px;color:var(--mute)}
+.greet b{color:var(--ink);font-weight:400}
+
+/* someone new */
+#s-new .wrap{max-width:980px;padding-top:3em}
+.newgrid{display:grid;grid-template-columns:1.1fr 1fr;gap:2em;margin-top:1.4em}
+@media (max-width:860px){.newgrid{grid-template-columns:1fr}}
+.cam{position:relative;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:#000}
+.cam video,.cam canvas{width:100%;height:100%;object-fit:cover;display:block}
+.cam .tag{position:absolute;left:.7em;bottom:.6em;z-index:3;background:#000;color:#fff;font-family:var(--mono);font-size:11px;padding:.15em .5em;border-radius:3px}
+.cam .shutter{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:3}
+.cam .shutter.go{animation:flash .45s ease-out}
+.newform{display:flex;flex-direction:column;gap:1.1em}
+.newform label{display:flex;flex-direction:column;gap:.3em;font-size:14px;color:var(--mute)}
+.newform input[type=text]{font-family:var(--serif);font-size:22px;padding:.3em .1em;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink)}
+.newform input[type=text]:focus{outline:0;border-bottom-color:var(--lilac)}
+.portrait{display:flex;gap:1em;align-items:center}
+.portrait .pic{width:96px;height:96px;border-radius:12px;overflow:hidden;position:relative;background:var(--soft);border:1px dashed var(--mute);display:grid;place-items:center;color:var(--mute);flex:0 0 auto}
+.portrait .pic canvas{width:100%;height:100%;display:block}
+.hands4{display:grid;grid-template-columns:repeat(4,1fr);gap:.6em}
+.hands4 button{aspect-ratio:3/4;border:1px dashed var(--mute);border-radius:8px;font-family:var(--mono);font-size:11px;color:var(--mute);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3em;position:relative;overflow:hidden}
+.hands4 button canvas{position:absolute;inset:0;width:100%;height:100%}
+.hands4 button.done{border-style:solid;border-color:var(--lilac);color:var(--lilac-deep)}
+.hands4 button span{position:relative;z-index:2;background:rgba(251,250,247,.85);padding:0 .3em;border-radius:3px}
+.btnrow{display:flex;gap:1em;align-items:center;flex-wrap:wrap;margin-top:.4em}
+
+/* home */
+.hero{position:relative;min-height:340px;border-radius:16px;overflow:hidden;color:#fff;display:flex;align-items:flex-end;background:var(--jelly-deep)}
+.hero .art{opacity:.95}
+.hero .veil{position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,10,51,.92) 0%,rgba(6,10,51,.55) 45%,rgba(6,10,51,.05) 100%)}
+.hero .body{position:relative;z-index:2;padding:2.2em;max-width:620px;display:flex;flex-direction:column;gap:.6em}
+.hero .eyebrow{font-family:var(--mono);font-size:12px;color:var(--violet);letter-spacing:.08em;text-transform:uppercase}
+.hero h1{font-size:40px}
+.hero p{margin:0;color:#dfe2ff;font-size:16px}
+.hero .cta{display:flex;gap:1em;align-items:center;margin-top:.6em;flex-wrap:wrap}
+.play{display:inline-flex;align-items:center;gap:.6em;background:#fff;color:var(--ink);padding:.6em 1.2em;border-radius:3em;font-weight:700;font-size:16px;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.play:hover{background:var(--lilac-soft)}
+.play kbd{font-family:var(--mono);font-weight:400;font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 .4em;background:#fff}
+.ghostbtn{color:#fff;border:1px solid rgba(255,255,255,.5);padding:.55em 1em;border-radius:3em;font-size:14px}
+.ghostbtn:hover{background:rgba(255,255,255,.12)}
+.row{margin-top:2.2em}
+.row h2{font-size:18px;font-weight:400;margin-bottom:.6em}
+.row h2::before{content:"- ";color:var(--mute)}
+.row h2 .mono{margin-left:.6em}
+.cards{display:flex;gap:.9em;overflow-x:auto;padding:.4em .2em 1em;scroll-snap-type:x proximity;scrollbar-width:thin}
+.cards.grid{flex-wrap:wrap;overflow:visible}
+.card{flex:0 0 232px;scroll-snap-align:start;border-radius:10px;overflow:hidden;background:#fff;border:1px solid var(--line);text-align:left;display:flex;flex-direction:column;transition:transform .18s,box-shadow .18s;position:relative}
+.card:hover,.card:focus-visible{transform:translateY(-4px) scale(1.02);box-shadow:0 10px 24px -12px rgba(43,64,216,.5)}
+.card .pic{height:128px;position:relative;background:var(--jelly-deep)}
+.card .pic.paper{background:var(--paper)}
+.card .pic .len{position:absolute;z-index:2;right:.6em;top:.5em;background:#000;color:#fff;font-family:var(--mono);font-size:11px;padding:.15em .5em;border-radius:3px}
+.card .pic .hand{position:absolute;z-index:2;left:.6em;top:.5em;display:flex;gap:.3em}
+.card .pic .hand span{background:rgba(255,255,255,.92);color:var(--ink);font-family:var(--mono);font-size:11px;padding:.15em .45em;border-radius:3px}
+.card .pic .hand span.dim{background:rgba(20,20,20,.55);color:#dcdcff}
+.card .pic.paper .hand span{background:rgba(20,20,20,.85);color:#fff}
+.card .pic .in{position:absolute;z-index:2;right:.6em;bottom:.5em;display:flex;gap:.25em}
+.card .pic .in i{width:7px;height:7px;border-radius:50%;background:#fff;opacity:.9;display:block}
+.card .txt{padding:.7em .8em .8em;display:flex;flex-direction:column;gap:.25em;flex:1}
+.card .title{font-weight:700;font-size:15px}
+.card .verb{font-size:13px;color:var(--mute);font-style:italic}
+.card .bars{display:flex;gap:.4em;margin-top:.5em}
+.card .bar{flex:1;height:4px;background:var(--soft);border-radius:2px;overflow:hidden}
+.card .bar i{display:block;height:100%;background:var(--lilac);width:0;transition:width .6s}
+.card .meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--mute);margin-top:.35em;gap:.5em}
+.card.done .title::after{content:" ✓";color:var(--lilac)}
+.card.retired{opacity:.45}
+.tags{display:flex;gap:.3em;flex-wrap:wrap;margin-top:.3em}
+.tags span{font-family:var(--mono);font-size:10px;padding:.05em .4em;border-radius:3px;background:var(--soft);color:var(--mute)}
+
+/* get ready */
+#s-ready .wrap{max-width:760px;padding-top:3em}
+.ready-head{display:flex;align-items:baseline;gap:1em;flex-wrap:wrap}
+.ready-head h1{font-size:28px}
+.steps{display:flex;flex-direction:column;gap:.8em;margin-top:1.6em}
+.step{display:grid;grid-template-columns:52px 1fr auto;gap:1em;align-items:center;padding:1em 1.1em;border:1px solid var(--line);border-radius:12px;background:#fff;transition:opacity .3s,border-color .3s}
+.step .ico{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--lilac-soft);color:var(--lilac-deep);font-family:var(--mono);font-size:13px;position:relative}
+.step .ico svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.step .ico circle{fill:none;stroke-width:3}
+.step .ico .track{stroke:#fff}
+.step .ico .prog{stroke:var(--lilac);stroke-dasharray:150;stroke-dashoffset:150;transition:stroke-dashoffset .5s linear}
+.step .t{font-weight:700}
+.step .s{font-size:14px;color:var(--mute)}
+.step .st{font-family:var(--mono);font-size:12px;color:var(--mute);text-align:right;min-width:110px}
+.step.ok{border-color:var(--lilac);opacity:.75}
+.step.ok .ico{background:var(--lilac);color:#fff}
+.step.ok .st{color:var(--lilac-deep)}
+.step.wait .ico{animation:breathe 1.6s infinite}
+@keyframes breathe{50%{box-shadow:0 0 0 8px var(--lilac-soft)}}
+.step .thumbs{display:flex;gap:.5em}
+.step .thumbs div{width:72px;height:50px;border-radius:5px;overflow:hidden;position:relative;background:#000}
+.step .thumbs div span{position:absolute;z-index:2;left:4px;bottom:2px;font-family:var(--mono);font-size:10px;color:#fff}
+.ready-foot{display:flex;justify-content:space-between;align-items:center;margin-top:2em;flex-wrap:wrap;gap:1em}
+.go{display:inline-flex;align-items:center;gap:.7em;background:var(--ink);color:#fff;padding:.8em 1.5em;border-radius:3em;font-weight:700;font-size:17px}
+.go[disabled]{opacity:.35;cursor:default}
+.go kbd{font-family:var(--mono);font-weight:400;font-size:12px;color:#bbb;border:1px solid #555;border-radius:4px;padding:0 .4em}
+.link{color:var(--lilac)}
+.link:hover{color:var(--lilac-deep)}
+.inputs-line{display:flex;gap:.5em;flex-wrap:wrap;margin-top:.8em}
+.inputs-line span{font-family:var(--mono);font-size:11px;padding:.15em .55em;border-radius:3px;background:var(--lilac-soft);color:var(--lilac-deep)}
+
+/* record: a big 4:3 stage, the demonstration on the left, the HUD on the right */
+#s-record{background:var(--jelly-ink);color:#fff;position:relative;min-height:100vh;--mood:0;--breath:6s}
+#s-record .bg .mood{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 60%,rgba(227,163,58,.42),rgba(150,70,20,.6) 70%);mix-blend-mode:screen;opacity:var(--mood);transition:opacity 1.2s}
+#s-record .bg .art{transition:filter 1.2s}
+#s-record.drift .bg .art{filter:contrast(1.25) saturate(1.2) hue-rotate(-28deg)}
+#s-record.off .bg .art{filter:contrast(1.3) saturate(1.1) hue-rotate(-50deg)}
+#s-record.stop .bg .art{filter:contrast(1.1) saturate(.4) brightness(.6)}
+#s-record.stop .bg .veil{background:radial-gradient(ellipse at 50% 55%,rgba(3,5,25,.55),rgba(3,5,25,.97) 72%)}
+.box43 .breath{position:absolute;inset:0;pointer-events:none;z-index:2;border-radius:16px;box-shadow:inset 0 0 110px rgba(217,169,234,.5);animation:breathe2 var(--breath) ease-in-out infinite}
+#s-record.drift .box43 .breath{box-shadow:inset 0 0 110px rgba(255,196,107,.45)}
+#s-record.off .box43 .breath{box-shadow:inset 0 0 130px rgba(227,120,58,.55)}
+#s-record.stop .box43 .breath{animation:none;opacity:.2;box-shadow:inset 0 0 140px rgba(204,68,68,.5)}
+@keyframes breathe2{0%,100%{opacity:.25}50%{opacity:1}}
+.box43 .corr{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:3.2em;pointer-events:none;text-align:center;animation:fade .4s}
+.box43 .corr .big{font-size:26px;font-style:italic;color:#ffc46b;text-shadow:0 2px 0 var(--jelly-deep);max-width:80%}
+.box43 .corr .small{font-family:var(--mono);font-size:12px;color:var(--violet);margin-top:.4em;letter-spacing:.06em}
+.now .assess{display:flex;gap:.5em;align-items:center;font-family:var(--mono);font-size:11px;color:#9aa0ff;min-height:1.4em}
+.now .assess i{width:8px;height:8px;border-radius:50%;background:var(--violet);display:inline-block;animation:pulse 1.2s infinite}
+.now .notes{display:flex;flex-direction:column;gap:.15em;font-family:var(--mono);font-size:11px;color:#9aa0ff;border-top:1px solid var(--hudline);padding-top:.4em;margin-top:.2em}
+.now .notes div{display:grid;grid-template-columns:34px 1fr;gap:.5em}
+.now .notes div:nth-last-child(n+3){opacity:.55}
+.now .notes b{font-weight:400;color:var(--violet)}
+.station-notes{font-family:var(--mono);font-size:12px;color:#9aa0ff;text-align:left;display:flex;flex-direction:column;gap:.2em;max-width:560px;margin-top:.4em}
+.station-notes div{display:grid;grid-template-columns:40px 1fr;gap:.6em}
+.station-notes b{font-weight:400;color:var(--violet)}
+.takenote{font-size:16px;font-style:italic;color:#dfe2ff;max-width:560px}
+#dev button{color:var(--lilac);font-family:var(--mono);border:1px solid #333;border-radius:4px;padding:.1em .5em}
+#s-record .bg{position:absolute;inset:0;overflow:hidden}
+#s-record .bg .art{opacity:.5;filter:contrast(1.25) saturate(1.5) hue-rotate(-8deg);transform:scale(1.04)}
+#s-record .bg .veil{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 55%,rgba(6,10,51,.2),rgba(6,10,51,.9) 72%)}
+.stage{position:relative;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr) 250px;grid-template-rows:auto minmax(0,1fr) auto;gap:1em 1.2em;padding:1.1em 1.4em .8em;height:100vh;min-height:680px}
+.stage .verb{grid-column:1/-1;text-align:center;display:flex;flex-direction:column;gap:.1em;align-items:center}
+.stage .verb .block{font-family:var(--mono);font-size:12px;color:var(--violet);letter-spacing:.1em;text-transform:uppercase}
+.stage .verb h1{font-size:30px;font-weight:400;font-style:italic;text-shadow:2px 0 0 rgba(136,136,255,.45),-2px 0 0 rgba(255,150,200,.35),0 2px 0 var(--jelly-deep)}
+.stage .verb canvas{width:420px;max-width:80vw;height:18px;display:block;opacity:.9}
+.left{display:flex;flex-direction:column;gap:.7em;min-height:0}
+.demo{position:relative;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:#000;border:1px solid var(--hudline);flex:0 0 auto}
+.demo video{width:100%;height:100%;object-fit:cover;display:block;filter:contrast(1.2) saturate(.8)}
+.demo video.mirror{transform:scaleX(-1)}
+.demo .tag,.tile .tag,.cams .tag{position:absolute;z-index:3;left:.6em;bottom:.5em;background:#000;color:#fff;font-family:var(--mono);font-size:11px;padding:.15em .5em;border-radius:3px}
+.demo .still{position:absolute;inset:0;display:grid;place-items:center;font-style:italic;color:#dfe2ff;text-align:center;padding:1em}
+.now{background:var(--hud);border:1px solid var(--hudline);border-radius:12px;padding:.8em .9em;display:flex;flex-direction:column;gap:.35em;font-size:14px;min-height:0;overflow:auto}
+.now .k{font-family:var(--mono);font-size:11px;color:#9aa0ff;letter-spacing:.08em;text-transform:uppercase}
+.now .v{font-style:italic;color:#fff}
+.now .reps{font-family:var(--mono);font-size:26px;color:var(--violet);line-height:1.1;font-variant-numeric:tabular-nums}
+.now .reps small{font-size:11px;color:#9aa0ff;margin-left:.4em}
+.now ol{margin:.2em 0 0;padding-left:1.4em;font-size:14px;display:flex;flex-direction:column;gap:.15em}
+.now ol li{color:#9aa0ff}
+.now ol li.on{color:#fff;font-style:italic}
+.now ol li.did{color:var(--violet)}
+.center{display:flex;align-items:center;justify-content:center;min-height:0;min-width:0}
+.box43{position:relative;height:100%;max-width:100%;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:rgba(6,10,51,.42);border:1px solid var(--hudline);box-shadow:0 0 0 1px rgba(0,0,0,.4),0 30px 60px -30px #000}
+.box43 canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.box43 .key{position:absolute;z-index:3;top:.7em;left:.9em;font-family:var(--mono);font-size:11px;color:#9aa0ff;display:flex;gap:1.1em}
+.box43 .key i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.4em;vertical-align:middle}
+.box43 .word{position:absolute;z-index:3;bottom:.55em;left:0;right:0;text-align:center;font-size:24px;font-style:italic;color:#fff;text-shadow:0 2px 0 var(--jelly-deep);transition:color .4s;padding:0 1em}
+.box43 .word.good{color:var(--violet)}
+.box43 .word.adjust{color:#ffc46b}
+.box43 .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:4}
+.box43 .flash.go{animation:flash .5s ease-out}
+@keyframes flash{from{opacity:.5}to{opacity:0}}
+.hud{display:flex;flex-direction:column;gap:.6em;min-height:0;overflow:hidden}
+.ringrow{display:flex;align-items:center;gap:.8em}
+.ring{position:relative;width:104px;height:104px;flex:0 0 auto}
+.ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}
+.ring .track{stroke:rgba(255,255,255,.14)}
+.ring .prog{stroke:var(--violet);stroke-dasharray:302;stroke-dashoffset:302;transition:stroke-dashoffset .4s linear;stroke-linecap:round}
+.ring .mid{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ring .mid b{font-family:var(--mono);font-size:21px;font-weight:400;font-variant-numeric:tabular-nums}
+.ring .mid small{font-family:var(--mono);font-size:10px;color:#9aa0ff}
+.ringrow .state{display:flex;flex-direction:column;gap:.2em}
+.ringrow .state i{font-style:italic;color:var(--violet);font-size:15px}
+.ringrow .keys{font-family:var(--mono);font-size:10.5px;color:#9aa0ff;line-height:1.7}
+.ringrow kbd{border:1px solid #5560c8;border-radius:3px;padding:0 .35em;color:#fff;margin-right:.25em;font-family:var(--mono)}
+.tile{position:relative;background:var(--hud);border:1px solid var(--hudline);border-radius:12px;padding:.6em .75em .6em;display:grid;grid-template-columns:1fr auto;gap:.2em .7em;align-items:center;font-size:13px;min-height:58px}
+.tile .k{font-family:var(--mono);font-size:11px;color:#9aa0ff;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:.4em}
+.tile .k .dot{margin:0;width:8px;height:8px}
+.tile .v{color:#fff;font-size:13px;line-height:1.35}
+.tile .v small{display:block;font-family:var(--mono);font-size:11px;color:#9aa0ff}
+.tile canvas{grid-row:1/3;width:84px;height:52px;border-radius:6px;background:#000;display:block}
+.tile.calm,.cams.calm{opacity:.42;transition:opacity .8s}
+.tile:hover,.cams:hover{opacity:1}
+.tile.alert,.cams.alert{animation:tilepulse 1.1s ease-out}
+@keyframes tilepulse{0%{box-shadow:0 0 0 0 rgba(217,169,234,.9)}100%{box-shadow:0 0 0 14px rgba(217,169,234,0)}}
+.foot .live{color:var(--violet)}
+.tile.off{border-color:rgba(204,68,68,.6)}
+.tile.off .v{color:#ffb3b3}
+.tile.warn .v{color:#ffd79a}
+.cams{position:relative;background:var(--hud);border:1px solid var(--hudline);border-radius:12px;padding:.55em;display:grid;grid-template-columns:1fr 1fr;gap:.45em;flex:0 0 auto}
+.cams .k{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:#9aa0ff;letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between}
+.cams .cell{position:relative;aspect-ratio:4/3;border-radius:7px;overflow:hidden;background:#000;border:1px solid transparent}
+.cams .cell.empty{border:1px dashed rgba(170,176,255,.45);display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:#9aa0ff;background:transparent;text-align:center;padding:.3em}
+.cams .cell video,.cams .cell img{width:100%;height:100%;object-fit:cover;display:block;filter:contrast(1.15) saturate(.9)}
+.cams .cell .tag{left:.4em;bottom:.3em;font-size:9.5px;padding:.1em .4em}
+.foot{grid-column:1/-1;display:flex;justify-content:center;gap:2.2em;font-family:var(--mono);font-size:12px;color:#9aa0ff;padding:.1em 0}
+.foot .dot{width:8px;height:8px}
+.stopbtn{color:#fff;border:1px solid rgba(255,255,255,.5);padding:.35em .9em;border-radius:3em;font-size:13px;align-self:flex-start}
+.stopbtn:hover{background:rgba(255,255,255,.12)}
+
+/* done */
+#s-done{background:var(--jelly-ink);color:#fff;position:relative;flex:1}
+#s-done .bg{position:absolute;inset:0;overflow:hidden}
+#s-done .bg .art{opacity:.5;filter:contrast(1.2) saturate(1.4)}
+#s-done .bg .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,10,51,.4),rgba(6,10,51,.92) 60%)}
+#s-done .wrap{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.7em;padding-top:4em}
+#s-done .plus{font-family:var(--mono);font-size:88px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#s-done .plus small{font-size:28px;color:var(--violet)}
+#s-done .line{font-size:20px;font-style:italic;color:#dfe2ff}
+#s-done .cta{display:flex;gap:1em;margin-top:1.2em;flex-wrap:wrap;justify-content:center}
+#s-done .row{width:100%;max-width:1000px;text-align:left;margin-top:3em}
+#s-done .row h2{color:#fff}
+#s-done .card{color:var(--ink)}
+.drawing{width:300px;max-width:100%;aspect-ratio:232/128;border-radius:10px;overflow:hidden;background:var(--paper);box-shadow:0 20px 40px -20px #000;transform:rotate(-1.2deg);margin:.6em 0}
+.drawing canvas,.drawing img{width:100%;height:100%;display:block}
+.jellies{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.jellies span{position:absolute;bottom:-60px;width:34px;height:34px;border-radius:50% 50% 40% 40%;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.9),rgba(217,169,234,.5) 60%,transparent 70%);animation:rise linear forwards;opacity:0}
+@keyframes rise{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:.9}100%{transform:translateY(-110vh) translateX(40px);opacity:0}}
+
+/* library */
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1em;margin-top:1.2em}
+.person{display:grid;grid-template-columns:64px 1fr;gap:.9em;align-items:center;padding:.8em;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;transition:transform .15s}
+.person:hover,.person:focus-visible{transform:translateY(-3px)}
+.person .pic{width:64px;height:64px;border-radius:10px;overflow:hidden;position:relative;background:var(--jelly-deep)}
+.person .n{font-weight:700}
+.person .h{font-family:var(--mono);font-size:12px;color:var(--mute)}
+.person .bar{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;margin-top:.4em}
+.person .bar i{display:block;height:100%;background:var(--lilac)}
+.lib-head{display:flex;align-items:baseline;gap:1em;flex-wrap:wrap}
+.lib-head h1{font-size:26px}
+.days{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;margin-top:1em;max-width:560px}
+.days div{aspect-ratio:1;border-radius:3px;background:var(--soft);position:relative}
+.days div[data-m]{background:var(--lilac);opacity:.35}
+.days div.m2{opacity:.6}.days div.m3{opacity:.85}.days div.m4{opacity:1}
+.days div::after{content:attr(data-d);position:absolute;left:3px;top:1px;font-family:var(--mono);font-size:9px;color:rgba(0,0,0,.45)}
+table.takes{width:100%;border-collapse:collapse;margin-top:1.2em;font-size:14px}
+table.takes th{text-align:left;font-family:var(--mono);font-weight:400;font-size:11px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase;padding:.4em .5em;border-bottom:1px solid var(--line)}
+table.takes td{padding:.45em .5em;border-bottom:1px solid var(--line);vertical-align:middle}
+table.takes tr.take{cursor:pointer}
+table.takes tr.take:hover td{background:var(--lilac-soft)}
+table.takes .thumb{width:58px;height:32px;border-radius:4px;display:block;background:var(--paper);border:1px solid var(--line)}
+.pill{font-family:var(--mono);font-size:11px;padding:.1em .55em;border-radius:3px;background:var(--lilac-soft);color:var(--lilac-deep)}
+.pill.redo{background:#fff2dc;color:#8a5a00}
+.missing{display:grid;grid-template-columns:auto repeat(2,80px);gap:.3em .8em;align-items:center;margin-top:1em;font-size:14px;max-width:420px}
+.missing .k{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:center}
+.missing .c{display:flex;gap:3px;justify-content:center}
+.missing .c i{width:14px;height:14px;border-radius:3px;background:var(--soft);display:block}
+.missing .c i.y{background:var(--lilac)}
+.two{display:grid;grid-template-columns:1.2fr 1fr;gap:2em;margin-top:1.5em}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+.thin{display:flex;flex-direction:column;gap:.3em;margin-top:.8em;font-size:14px}
+.thin div{display:grid;grid-template-columns:150px 1fr auto;gap:.6em;align-items:center}
+.thin .bar{height:6px;background:var(--soft);border-radius:3px;overflow:hidden}
+.thin .bar i{display:block;height:100%;background:var(--lilac)}
+.thin .n{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.scrub{display:grid;grid-template-columns:1fr 1fr;gap:1em;margin-top:1.2em}
+.scrub .tile43{position:relative;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:16/10}
+.scrub .tile43.hand{background:var(--jelly-ink)}
+.scrub .tile43 canvas,.scrub .tile43 video{width:100%;height:100%;display:block;object-fit:cover}
+.scrub .tile43 .tag{position:absolute;z-index:2;left:.6em;bottom:.5em;background:#000;color:#fff;font-family:var(--mono);font-size:11px;padding:.15em .5em;border-radius:3px}
+.timeline{margin-top:1em;display:flex;flex-direction:column;gap:.4em}
+.timeline input[type=range]{width:100%;accent-color:var(--lilac)}
+.timeline .marks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--mute)}
+.timeline .cuts{height:8px;border-radius:4px;background:var(--lilac);position:relative;overflow:hidden}
+.timeline .cuts i{position:absolute;top:0;bottom:0;background:var(--warn)}
+.tl-row{display:flex;gap:.8em;align-items:center;font-size:14px;flex-wrap:wrap}
+.tl-row .mono{color:var(--mute)}
+.takehead{display:grid;grid-template-columns:232px 1fr;gap:1.2em;align-items:center;margin-top:1em}
+@media (max-width:700px){.takehead{grid-template-columns:1fr}}
+.takehead .drawing{transform:none;margin:0;width:232px}
+
+/* station + repertoire (operator pages) */
+#s-station .wrap,#s-rep .wrap{max-width:1060px}
+.stn{display:grid;grid-template-columns:1fr 1fr;gap:2em;margin-top:1.2em}
+@media (max-width:860px){.stn{grid-template-columns:1fr}}
+.inlist{display:flex;flex-direction:column;gap:.6em;margin-top:.8em}
+.inrow{display:grid;grid-template-columns:20px 1fr auto;gap:.8em;align-items:center;padding:.7em .9em;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:14px}
+.inrow .n{font-weight:700;display:flex;gap:.6em;align-items:center;flex-wrap:wrap}
+.inrow .s{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.inrow select,.form select,.form input,.form textarea{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:4px;padding:.2em .35em;background:#fff;color:var(--ink)}
+.inrow .x{color:var(--mute);font-family:var(--mono);font-size:12px;white-space:nowrap}
+.inrow .x:hover{color:var(--stop)}
+.inrow .x.lilac{color:var(--lilac)}
+.addcam{display:inline-flex;gap:.5em;align-items:center;font-size:14px;color:var(--lilac);margin-top:.6em}
+.addcam[disabled]{color:var(--mute);cursor:default}
+table.scen{width:100%;border-collapse:collapse;font-size:14px;margin-top:.8em}
+table.scen th{font-family:var(--mono);font-weight:400;font-size:11px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:.4em .4em;border-bottom:1px solid var(--line)}
+table.scen td{padding:.4em .4em;border-bottom:1px solid var(--line)}
+table.scen td.c{text-align:center}
+table.scen input{accent-color:var(--lilac)}
+.h2{font-size:18px;font-weight:400;margin-top:1.6em}
+.h2::before{content:"- ";color:var(--mute)}
+.filters{display:flex;gap:.6em;flex-wrap:wrap;align-items:center;margin-top:1em;font-family:var(--mono);font-size:12px}
+.filters select{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:4px;padding:.2em .35em;background:#fff}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:.9em 1.2em;margin-top:1em;padding:1.2em;border:1px solid var(--line);border-radius:12px;background:#fff}
+@media (max-width:760px){.form{grid-template-columns:1fr}}
+.form label{display:flex;flex-direction:column;gap:.3em;font-size:13px;color:var(--mute)}
+.form label.wide{grid-column:1/-1}
+.form input[type=text]{font-family:var(--serif);font-size:16px}
+.form textarea{font-family:var(--serif);font-size:14px;min-height:5.5em;resize:vertical}
+.form .chk{display:flex;gap:1em;flex-wrap:wrap;font-size:14px;color:var(--ink)}
+.form .chk label{flex-direction:row;align-items:center;gap:.4em;color:var(--ink)}
+.form .actions{grid-column:1/-1;display:flex;gap:1em;align-items:center;flex-wrap:wrap}
+.form .go{font-size:15px;padding:.6em 1.2em}
+
+/* dev strip */
+#dev{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#000;color:#fff;font-family:var(--mono);font-size:12px;padding:.6em 1em;display:none;gap:1.1em;flex-wrap:wrap;align-items:center;padding-bottom:calc(.6em + env(safe-area-inset-bottom,0px))}
+#dev.on{display:flex}
+#dev label{display:inline-flex;gap:.4em;align-items:center;cursor:pointer}
+#dev b{color:var(--lilac);font-weight:400}
+
+@media (max-width:1000px){
+  .stage{grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto;height:auto}
+  .center{min-height:60vw}
+  .box43{height:auto;width:100%}
+  .left{flex-direction:row;flex-wrap:wrap}
+  .demo{width:48%}
+  .hud{flex-direction:row;flex-wrap:wrap}
+  .hero h1{font-size:30px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="banner" aria-live="polite"></div>
+
+<div id="app">
+  <header class="top" id="top" hidden>
+    <div class="brand" id="brand">silent <span class="leaf">❧</span><small>station 2</small></div>
+    <nav>
+      <button id="nav-record" class="on">record</button>
+      <button id="nav-library">library</button>
+      <button id="nav-rep">layers</button>
+      <button id="nav-station">navi</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="dots" id="top-dots" title="wired"></div>
+    <button class="chip" id="chip"><img id="chip-img" alt=""><span id="chip-name">paul</span></button>
+    <button class="link" id="signout" style="font-size:14px">sign out</button>
+  </header>
+  <div class="wired" id="wired" hidden><div class="wh"><b>wired</b><button class="link" id="wired-close">close</button></div><div id="wired-body"></div></div>
+
+  <!-- who's recording -->
+  <section class="screen on" id="s-who">
+    <div class="wrap">
+      <div class="mono mute">silent ❧ station 2</div>
+      <h1 style="font-size:34px">who's recording?</h1>
+      <div class="greet" id="greet"></div>
+      <div class="faces" id="faces"></div>
+    </div>
+  </section>
+
+  <!-- someone new -->
+  <section class="screen" id="s-new">
+    <div class="wrap">
+      <div class="mono mute">silent ❧ someone new</div>
+      <h1 style="font-size:30px">say hi to the camera</h1>
+      <p class="mute" style="margin:.3em 0 0">a photo and a first name.</p>
+      <div class="newgrid">
+        <div class="cam tone light crt"><video id="newcam" src="data/coach.mp4" muted loop playsinline></video><div class="shutter" id="shutter"></div><span class="tag">station camera · live</span></div>
+        <div class="newform">
+          <div class="portrait"><div class="pic" id="new-pic"><span class="mono">no photo yet</span></div><div><button class="play" id="new-shot">◉ take the photo</button></div></div>
+          <label>first name<input type="text" id="new-name" placeholder="your name" autocomplete="off"></label>
+          <div>
+            <div class="mono mute" style="margin-bottom:.4em">hand photos · <a href="#" id="new-later">later is fine</a></div>
+            <div class="hands4" id="hands4">
+              <button data-h="right back"><span>right · back</span></button><button data-h="right palm"><span>right · palm</span></button><button data-h="left back"><span>left · back</span></button><button data-h="left palm"><span>left · palm</span></button>
+            </div>
+          </div>
+          <div class="btnrow"><button class="go" id="new-go" disabled>that's me, let's go</button><button class="link" id="new-back">← I'm already here</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- home -->
+  <section class="screen" id="s-home">
+    <div class="wrap">
+      <div class="hero tone glitchy" id="hero">
+        <img class="art" src="art/jelly.jpg" alt="">
+        <div class="veil"></div>
+        <div class="body">
+          <div class="eyebrow" id="hero-eyebrow">pick up where you left off</div>
+          <h1 id="hero-title"></h1>
+          <p id="hero-sub"></p>
+          <div class="cta">
+            <button class="play" id="hero-play">▶ record <kbd>space</kbd></button>
+            <button class="ghostbtn" id="hero-free">just move for five minutes</button>
+          </div>
+        </div>
+      </div>
+      <div id="rows"></div>
+    </div>
+  </section>
+
+  <!-- get ready -->
+  <section class="screen" id="s-ready">
+    <div class="wrap">
+      <div class="ready-head">
+        <h1 id="ready-title">Get ready</h1>
+        <span class="mono mute" id="ready-sub"></span>
+        <button class="link" id="ready-swap" style="font-size:14px">switch to the left hand</button>
+      </div>
+      <p class="mute" style="margin:.4em 0 0" id="ready-line"></p>
+      <div class="inputs-line" id="ready-inputs"></div>
+      <div class="steps" id="steps"></div>
+      <div class="ready-foot">
+        <button class="link" id="ready-back">← back</button>
+        <button class="go" id="ready-go" disabled>start <kbd>space</kbd></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- record -->
+  <section class="screen" id="s-record">
+    <div class="bg tone light"><img class="art" src="art/jelly.jpg" alt=""><div class="veil"></div><div class="mood"></div></div>
+    <div class="stage">
+      <div class="verb">
+        <div class="block" id="rec-block"></div>
+        <h1 id="rec-verb"></h1>
+        <canvas id="verb-line" width="840" height="36"></canvas>
+      </div>
+
+      <div class="left">
+        <div class="demo tone light crt"><video id="demo" src="data/coach.mp4" muted loop playsinline preload="auto"></video><div class="still" id="demo-still" hidden>just you.</div><span class="tag" id="demo-tag">the demonstration</span></div>
+        <div class="now" id="now">
+          <div class="k" id="now-k">now</div><div class="v" id="now-v"></div>
+          <ol id="steplist"></ol>
+          <div class="reps" id="reps">0<small>good repeats</small></div>
+          <div class="assess" id="assess"></div>
+          <div class="notes" id="notes"></div>
+        </div>
+        <button class="stopbtn" id="rec-stop">stop &amp; save <span class="mono" style="color:#9aa0ff">esc</span></button>
+      </div>
+
+      <div class="center">
+        <div class="box43 tone light crt" id="box">
+          <canvas id="hand"></canvas>
+          <div class="key" id="key"><span><i style="background:var(--violet)"></i>demonstration</span><span><i style="background:#fff"></i>you</span></div>
+          <div class="breath"></div>
+          <div class="corr" id="corr" hidden><div class="big" id="corr-big"></div><div class="small">let's do that one together</div></div>
+          <div class="word" id="word">press space when you're ready</div>
+          <div class="flash" id="flash"></div>
+        </div>
+      </div>
+
+      <div class="hud" id="hud">
+        <div class="ringrow">
+          <div class="ring"><svg viewBox="0 0 104 104"><circle class="track" cx="52" cy="52" r="48"/><circle class="prog" id="ring" cx="52" cy="52" r="48"/></svg><div class="mid"><div><b id="clock">0:00</b><br><small id="ring-of">of 5:00</small></div></div></div>
+          <div class="state"><i id="state">ready</i><div class="keys" id="keys"></div></div>
+        </div>
+        <div class="tile" id="t-glove"><div class="k"><i class="dot"></i>glove</div><div class="v" id="t-glove-v"></div></div>
+        <div class="tile" id="t-probe"><div class="k"><i class="dot"></i>probe</div><div class="v" id="t-probe-v"></div><canvas id="t-probe-c" width="168" height="104"></canvas></div>
+        <div class="tile" id="t-force"><div class="k"><i class="dot"></i>force object</div><div class="v" id="t-force-v"></div><canvas id="t-force-c" width="168" height="104"></canvas></div>
+        <div class="cams" id="cams"></div>
+      </div>
+
+      <div class="foot" id="foot"></div>
+    </div>
+  </section>
+
+  <!-- done -->
+  <section class="screen" id="s-done">
+    <div class="bg tone light"><img class="art" src="art/171447.jpg" alt=""><div class="veil"></div></div>
+    <div class="jellies" id="jellies"></div>
+    <div class="wrap">
+      <div class="mono" style="color:var(--violet)" id="done-top">saved</div>
+      <div class="plus" id="done-plus">+5<small>:12</small></div>
+      <div class="line" id="done-line"></div>
+      <div class="drawing tone" id="done-drawing"></div>
+      <div class="mono" style="color:#9aa0ff" id="done-meta" hidden></div>
+      <div class="takenote" id="done-takenote"></div>
+      <div class="station-notes" id="done-notes"></div>
+      <div class="cta">
+        <button class="play" id="done-again">▶ one more take</button>
+        <button class="ghostbtn" id="done-home">i'm done for now</button>
+      </div>
+      <div class="row"><h2>your programme</h2><div class="cards" id="done-cards"></div></div>
+    </div>
+  </section>
+
+  <!-- library -->
+  <section class="screen" id="s-library">
+    <div class="wrap" id="lib"></div>
+  </section>
+
+  <!-- repertoire -->
+  <section class="screen" id="s-rep">
+    <div class="wrap" id="rep"></div>
+  </section>
+
+  <!-- station -->
+  <section class="screen" id="s-station">
+    <div class="wrap" id="stn"></div>
+  </section>
+</div>
+
+<div id="dev">
+  <b>test switches</b>
+  <label><input type="checkbox" data-sim="gloveOff">glove off</label>
+  <label><input type="checkbox" data-sim="probeOff">probe off skin</label>
+  <label><input type="checkbox" data-sim="probeMoved">image looks different</label>
+  <label><input type="checkbox" data-sim="limit">sensor at its limit</label>
+  <label><input type="checkbox" data-sim="diskLow">disk nearly full</label>
+  <label><input type="checkbox" data-sim="slow">slower than the demonstration</label>
+  <label><input type="checkbox" data-sim="small">opening less than shown</label>
+  <label><input type="checkbox" data-sim="finger">ring finger is off</label>
+  <label><input type="checkbox" data-sim="wander">not following at all</label>
+  <button data-dev="assess">assess now</button><button data-dev="correct">correct now</button>
+  <span class="mute">d hides</span>
+</div>
+
+<script>
+/* ---------- data (examples, seeded so the page is stable) ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const ART={cave:'art/cave.jpg',hole:'art/blackhole.jpg',earth:'art/earthroom.jpg',net:'art/network.jpg',a:'art/165648.jpg',b:'art/170228.jpg',c:'art/171447.jpg',d:'art/171920.jpg',jelly:'art/jelly.jpg'};
+const FING=['thumb','index finger','middle finger','ring finger','little finger'];
+const TAGS={moves:['fingers one at a time','whole hand','thumb','wrist','grasp','fine task'],load:['nothing in hand','everyday object','force object','keyboard'],pace:['slow with holds','natural','fast'],guidance:['demonstrated','prompted','free']};
+const SETS=[{id:'five',name:'five-minute pieces'},{id:'object',name:'with the object'},{id:'free',name:'free play'}];
+const DEMO_DUR=20;
+const marksFor=n=>Array.from({length:n},(_,i)=>+(i*DEMO_DUR/n).toFixed(1));
+const DAY=86400000, NOW=new Date('2026-10-12T00:05:00+01:00').getTime();
+function piece(o){const p=Object.assign({hands:['right','left'],version:1,by:'bruno',made:NOW-6*DAY,retired:false},o);p.demo={dur:DEMO_DUR,marks:marksFor(p.steps.length)};p.truth=Object.assign({tolerance:'normal',rubric:'',rules:{pace:true,fingers:true,coupling:true,motion:true},refs:{}},o.truth||{});return p}
+const RUBRICS={pinch:'Each fingertip meets the thumb tip squarely, one finger at a time, with the other fingers staying open and relaxed. The hand opens fully between touches. Pace follows the demonstration; a touch is a touch, not a press.',open:'The whole hand opens wide with the fingers spread a little, then closes slowly into a loose fist, with a short hold. The wrist stays still. Nothing fast.',squeeze:'The hand closes around the object with all five fingers in contact. The squeeze rises over about two seconds, holds, and releases fully so the sensors return to rest.',wrist:'The fingers stay relaxed and together; only the wrist moves, to its comfortable end in each direction, without the elbow helping.'};
+const PIECES=[
+ piece({id:'open',set:'five',title:'Open and close',verb:'Open and close your hand, slowly.',min:5,art:ART.a,steps:['open wide','close slowly','hold a moment','open again'],tags:{moves:'whole hand',load:'nothing in hand',pace:'slow with holds',guidance:'demonstrated'},truth:{rubric:RUBRICS.open,tolerance:'loose'}}),
+ piece({id:'spread',set:'five',title:'Spread and relax',verb:'Spread your fingers wide, then let them rest.',min:5,art:ART.b,steps:['spread wide','let them rest','spread again'],tags:{moves:'whole hand',load:'nothing in hand',pace:'natural',guidance:'demonstrated'}}),
+ piece({id:'pinch',set:'five',title:'Pinch and release',verb:'Touch each fingertip to your thumb, then open.',min:5,art:ART.c,steps:['touch the index finger to the thumb','the middle finger','the ring finger','the little finger','open'],tags:{moves:'thumb',load:'nothing in hand',pace:'natural',guidance:'demonstrated'},truth:{rubric:RUBRICS.pinch,tolerance:'normal'}}),
+ piece({id:'one',set:'five',title:'One finger at a time',verb:'Bend one finger, straighten it, then the next.',min:5,art:ART.d,steps:['bend the index finger','the middle finger','the ring finger','the little finger','the thumb'],by:'paul',tags:{moves:'fingers one at a time',load:'nothing in hand',pace:'slow with holds',guidance:'demonstrated'}}),
+ piece({id:'thumb',set:'five',title:'Thumb slide',verb:'Slide your thumb down your little finger and back.',min:4,art:ART.hole,steps:['slide down','and back up'],tags:{moves:'thumb',load:'nothing in hand',pace:'slow with holds',guidance:'demonstrated'}}),
+ piece({id:'wrist',set:'five',title:'Wrist turns',verb:'Turn your wrist as far as it goes, both ways.',min:4,art:ART.net,steps:['turn in','turn out','bend down','bend up'],by:'paul',tags:{moves:'wrist',load:'nothing in hand',pace:'natural',guidance:'demonstrated'}}),
+ piece({id:'clap',set:'five',title:'Both hands, mirror',verb:'Do what the demonstration does, with both hands at once.',min:4,art:ART.c,steps:['open both','close both','open the left only','open the right only'],hands:['both'],tags:{moves:'whole hand',load:'nothing in hand',pace:'natural',guidance:'demonstrated'}}),
+ piece({id:'squeeze',set:'object',title:'Squeeze and hold',verb:'Squeeze the object, hold it, let it go.',min:5,art:ART.earth,steps:['squeeze','hold','let go'],tags:{moves:'grasp',load:'force object',pace:'slow with holds',guidance:'demonstrated'},truth:{rubric:RUBRICS.squeeze,tolerance:'normal',rules:{pace:true,fingers:false,coupling:true,motion:true}}}),
+ piece({id:'press',set:'object',title:'Press each finger',verb:'Press the object with one finger at a time.',min:5,art:ART.cave,steps:['press with the index finger','the middle finger','the ring finger','the little finger','the thumb'],by:'paul',tags:{moves:'fingers one at a time',load:'force object',pace:'natural',guidance:'demonstrated'}}),
+ piece({id:'ramp',set:'object',title:'Soft to firm',verb:'Press softly, then firmer, then soft again.',min:5,art:ART.a,steps:['softly','firmer','firm','softer'],tags:{moves:'grasp',load:'force object',pace:'slow with holds',guidance:'demonstrated'}}),
+ piece({id:'free',set:'free',title:'Just move',verb:'Do whatever your hand feels like doing.',min:5,art:ART.jelly,free:true,steps:['anything at all'],tags:{moves:'whole hand',load:'nothing in hand',pace:'natural',guidance:'free'}}),
+ piece({id:'type',set:'free',title:'Type something',verb:'Type a message to someone you like.',min:5,art:ART.b,free:true,steps:['type away'],tags:{moves:'fine task',load:'keyboard',pace:'fast',guidance:'prompted'}}),
+ piece({id:'pour',set:'free',title:'Pour a glass',verb:'Pour water from a bottle into a glass. Drink it.',min:3,art:ART.d,free:true,steps:['pour','drink'],tags:{moves:'grasp',load:'everyday object',pace:'natural',guidance:'prompted'}}),
+];
+const GOAL=3;
+const PEOPLE=[
+ {id:'paul',name:'paul',art:ART.cave,init:'P',seed:11,takes:[],profile:true,hand:198,lastGlove:'manus'},
+ {id:'bruno',name:'bruno',art:ART.hole,init:'B',seed:7,takes:[],profile:true,hand:190,lastGlove:'wuji'},
+ {id:'vadims',name:'vadims',art:ART.earth,init:'V',seed:3,takes:[],profile:false,hand:184,lastGlove:'manus'},
+];
+PEOPLE.forEach(p=>{const r=rng(p.seed);const n=p.id==='bruno'?62:p.id==='paul'?38:12;
+  for(let i=0;i<n;i++){const b=PIECES[Math.floor(r()*PIECES.length)];const daysAgo=Math.floor(r()*r()*14);const t=NOW-daysAgo*DAY-Math.floor(r()*10*3600000);const hand=b.hands.includes('both')?'both':(r()<.72?'right':'left');
+    p.takes.push({t,piece:b,pieceVersion:1,hand,sec:Math.round((b.min*60)*(0.55+r()*.5)),verdict:r()<.86?'good':'redo',helper:r()<.15?(p.id==='bruno'?'paul':'bruno'):'',redos:Math.floor(r()*3),reps:Math.floor(20+r()*30),seed:Math.floor(r()*1e6)})}
+  p.takes.sort((a,b)=>b.t-a.t)});
+const fmtH=s=>{const h=Math.floor(s/3600),m=Math.round((s%3600)/60);return h?`${h} h ${String(m).padStart(2,'0')} min`:`${m} min`};
+const fmtC=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+const total=p=>p.takes.reduce((a,t)=>a+t.sec,0);
+const today=p=>p.takes.filter(t=>NOW-t.t<12*3600000).reduce((a,t)=>a+t.sec,0);
+function gradeOf(t){if(t.grade)return t.grade;let g,why;
+  if(t.verdict==='redo'){g='rough';why='redone by the operator'}
+  else if(t.coupling){g='rough';why='the probe left the skin during the take'}
+  else if((t.corrections||0)>=2){g='fine';why=`${t.corrections} corrections`}
+  else if((t.redos||0)>=2){g='fine';why=`${t.redos} redos`}
+  else if(!t.piece.free&&t.reps<24){g='fine';why='few good repeats'}
+  else{g='clean';why=t.piece.free?'moved the whole time':'stayed with the purple hand'}
+  t.grade={g,why};return t.grade}
+const counts=(p,b,hand)=>p.takes.filter(t=>t.piece.id===b.id&&t.hand===hand&&gradeOf(t).g!=='rough').length;
+const done=counts;
+const gradeMix=list=>{const m={clean:0,fine:0,rough:0};list.forEach(t=>m[gradeOf(t).g]++);return m};
+const gradeBar=list=>{const m=gradeMix(list),n=Math.max(1,list.length);return `<div class="gradebar"><i class="c" style="width:${m.clean/n*100}%"></i><i class="f" style="width:${m.fine/n*100}%"></i><i class="r" style="width:${m.rough/n*100}%"></i></div>`};
+const streak=p=>{let d=0;for(let i=0;i<14;i++){if(p.takes.some(t=>Math.floor((NOW-t.t)/DAY)===i))d++;else if(i>0)break}return d};
+
+/* the station: what is plugged in, and which take uses what */
+const STATION={
+  gloves:{right:{brand:'manus',serial:'540761463',live:true,battery:72,calibratedAt:NOW-40*60000,wujiUser:'bruno',wujiSerial:'WG1KA06260813555'},left:{brand:'manus',serial:'540761421',live:true,battery:58,calibratedAt:NOW-3*3600000,wujiUser:null,wujiSerial:null}},
+  probes:[{id:'2M9',live:true,battery:61,photos:{},description:'On the right forearm, palm side, about four finger-widths below the elbow crease, the marker dot toward the elbow. Silicone standoff 45 mm in the printed holder, strap snug but not tight, a thumb of gel.'},{id:'2P1',live:false,battery:0,photos:{},description:''}],probe:'2M9',preset:'msk silicone v2',presets:['msk silicone v2','nerve silicone v1','carotid silicone v1','msk default'],
+  force:{sensors:5,live:true,zeroedAt:0,fingers:['thumb','index','middle','ring','little']},
+  cameras:[{id:'cam-1',role:'webcam',live:true,src:'video'},{id:'cam-2',role:'egocentric',live:true,src:ART.a}],
+  cameraRoles:['webcam','egocentric','overhead','side','scanner'],
+  mic:{on:true,level:.4},handModel:'own',storage:{roomMin:430,lastMoved:NOW-2*DAY,unmoved:14},
+};
+const SCEN={five:{force:false,cams:['webcam'],mic:true},object:{force:true,cams:['webcam','egocentric'],mic:true},free:{force:false,cams:['webcam','egocentric'],mic:true}};
+
+/* ---------- state ---------- */
+const S={person:null,screen:'who',piece:null,hand:'right',mode:'take',sim:{},health:{},lastTakeAt:NOW-40*60000,newPhoto:null,newHands:{},repFilter:{set:'',moves:'',load:'',pace:'',guidance:''}};
+const $=id=>document.getElementById(id);
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id==='s-'+id));S.screen=id;$('top').hidden=(id==='who'||id==='record'||id==='new');
+  const navs={record:['home','ready','done'],library:['library'],rep:['rep'],station:['station']};for(const n in navs)$('nav-'+n).classList.toggle('on',navs[n].includes(id));
+  window.scrollTo(0,0);if(id!=='record')stopRecordLoop();if(id==='record')startRecordLoop();if(id==='new'){$('newcam').play().catch(()=>{})}else{$('newcam').pause()}}
+
+/* banner strips (celeste style) */
+function strip(text,{kind='',ok='ok',ttl=0,id=''}={}){const el=document.createElement('div');el.className='strip '+kind;if(id)el.dataset.id=id;el.innerHTML=`<span class="bulb">💡</span><span>${text}</span><button>[${ok}]</button>`;el.querySelector('button').onclick=()=>el.remove();const old=id&&$('banner').querySelector(`[data-id="${id}"]`);if(old)old.replaceWith(el);else $('banner').appendChild(el);if(ttl)setTimeout(()=>el.remove(),ttl);return el}
+function clearStrip(id){const old=$('banner').querySelector(`[data-id="${id}"]`);if(old)old.remove()}
+
+/* ---------- sound: a chord when a repeat lands, a hum while the probe is off ---------- */
+let AC=null,HUM=null;
+function audio(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){AC=null}}return AC}
+function chord(){const ac=audio();if(!ac)return;const t=ac.currentTime;[440,659.25,880].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05/(i+1),t+.02);g.gain.exponentialRampToValueAtTime(.0005,t+.9);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+1)})}
+function hum(on){const ac=audio();if(!ac)return;if(on&&!HUM){const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=55;g.gain.value=.025;o.connect(g).connect(ac.destination);o.start();HUM={o,g}}if(!on&&HUM){HUM.g.gain.linearRampToValueAtTime(0,ac.currentTime+.3);HUM.o.stop(ac.currentTime+.35);HUM=null}}
+
+/* ---------- motion + hand drawing ---------- */
+let MOTION=null;fetch('data/motion.json').then(r=>r.json()).then(m=>{MOTION=m}).catch(()=>{MOTION=null});
+const CHAIN={1:0,2:1,3:2,4:3,5:0,6:5,7:6,8:7,9:8,10:0,11:10,12:11,13:12,14:13,15:0,16:15,17:16,18:17,19:18,20:0,21:20,22:21,23:22,24:23};
+const TIPS=[4,9,14,19,24];const DEMO_HAND=190;
+function synth(t){const pts=[[0,0,0]];const f=(Math.sin(t*1.6)+1)/2;const dirs=[[60,70,-20],[200,40,0],[205,0,0],[195,-35,0],[175,-65,0]];
+  for(let d=0;d<5;d++){const n=d?5:4;const [x,y,z]=dirs[d];for(let j=0;j<n;j++){const k=(j+1)/n;const curl=d?f*k*k*1.4:f*k*.9;pts.push([x*k*Math.cos(curl),y*k,z*k-x*k*Math.sin(curl)*.9])}}return pts}
+function frameAt(tSec){if(!MOTION)return synth(tSec);const f=MOTION.frames;const i=Math.floor((tSec*MOTION.hz)%f.length);return f[i]}
+function scaled(pts,k){return k===1?pts:pts.map(p=>[p[0]*k,p[1]*k,p[2]*k])}
+function project(p,view){const [x,y,z]=p;const cy=Math.cos(view.yaw),sy=Math.sin(view.yaw),cp=Math.cos(view.pitch),sp=Math.sin(view.pitch);
+  const X=x*cy-y*sy,Y=x*sy+y*cy,Z=z;const X2=X*cp-Z*sp,Z2=X*sp+Z*cp;const depth=view.f/(view.f+X2+view.d);
+  return [view.cx-(view.mirror?-Y:Y)*view.s*depth,view.cy-Z2*view.s*depth,depth]}
+function drawHand(ctx,pts,view,color,opt={}){const P=pts.map(p=>project(p,view));ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+  if(opt.glow){ctx.shadowColor=opt.glow;ctx.shadowBlur=opt.glowSize||26}
+  ctx.beginPath();[0,1,6,11,16,21].forEach((n,i)=>{const [x,y]=P[n];i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fillStyle=opt.palm||color;ctx.globalAlpha=(opt.alpha||1)*.35;ctx.fill();ctx.globalAlpha=opt.alpha||1;
+  ctx.strokeStyle=color;ctx.lineWidth=opt.w||9;
+  for(const c in CHAIN){const a=P[CHAIN[c]],b=P[c];ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()}
+  ctx.fillStyle=color;for(let n=0;n<25;n++){const [x,y,d]=P[n];ctx.beginPath();ctx.arc(x,y,(TIPS.includes(n)?.62:n===0?1:.5)*(opt.w||9)*d,0,7);ctx.fill()}
+  ctx.restore();return P}
+function handView(w,h,hand){const both=hand==='both';return Object.assign({yaw:-.12,pitch:1.25,f:900,d:120,s:both?h/270:h/205,cx:w*.5,cy:h*.88,mirror:hand==='left'},window.VIEW||{})}
+function tipErrors(a,b){return TIPS.map(t=>{const dx=a[t][0]-b[t][0],dy=a[t][1]-b[t][1],dz=a[t][2]-b[t][2];return Math.sqrt(dx*dx+dy*dy+dz*dz)})}
+function fit(c){const r=c.getBoundingClientRect();const dpr=Math.min(2,window.devicePixelRatio||1);const W=Math.max(2,Math.round(r.width*dpr)),H=Math.max(2,Math.round(r.height*dpr));if(c.width!==W||c.height!==H){c.width=W;c.height=H}return [W,H]}
+
+/* every take draws its own picture: the fingertip paths as ink on paper */
+function takeDrawing(take,w=464,h=256){if(take.drawing)return take.drawing;const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.fillStyle='#fbfaf7';ctx.fillRect(0,0,w,h);
+  const r=rng(take.seed||7);const n=Math.min(420,Math.round(take.sec*2.2));const t0=r()*18;const view={yaw:-.12+(r()-.5)*.5,pitch:1.1+r()*.3,f:900,d:120,s:h/190*(0.9+r()*.3),cx:w*(.35+r()*.3),cy:h*(.8+r()*.15),mirror:take.hand==='left'};
+  const inks=['rgba(20,20,20,','rgba(68,68,204,','rgba(43,64,216,','rgba(20,20,20,','rgba(138,138,138,'];
+  for(let f=0;f<5;f++){ctx.beginPath();let first=true;for(let i=0;i<n;i++){const t=t0+i/22;const p=project(frameAt(t)[TIPS[f]],view);const jx=(r()-.5)*1.2,jy=(r()-.5)*1.2;if(first){ctx.moveTo(p[0]+jx,p[1]+jy);first=false}else ctx.lineTo(p[0]+jx,p[1]+jy)}ctx.strokeStyle=inks[f]+(0.55+r()*.3)+')';ctx.lineWidth=0.8+r()*1.4;ctx.stroke()}
+  ctx.fillStyle='rgba(20,20,20,.55)';ctx.font='11px Source Code Pro,monospace';ctx.fillText(`${take.piece.title.toLowerCase()} · ${take.hand} · ${fmtC(take.sec)}`,10,h-10);
+  take.drawing=c.toDataURL('image/jpeg',.82);return take.drawing}
+function verbLine(piece){const c=$('verb-line');const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);if(piece.free)return;ctx.beginPath();for(let i=0;i<440;i++){const p=frameAt(i/22)[9];const x=20+i*(c.width-40)/440,y=c.height/2+(p[2]+40)*.25;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle='rgba(217,169,234,.9)';ctx.lineWidth=2.2;ctx.lineJoin='round';ctx.stroke()}
+
+/* ultrasound: a sector of drifting speckle, all a participant needs to recognise */
+function drawUS(c,t,state,ref){const ctx=c.getContext('2d');const w=c.width,h=c.height;ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);if(state==='off'){for(let i=0;i<w*h/60;i++){ctx.fillStyle=`rgba(255,255,255,${Math.random()*.25})`;ctx.fillRect(Math.random()*w,Math.random()*h,2,2)}return}
+  const r=rng(ref?99:7);ctx.save();ctx.beginPath();ctx.moveTo(w/2,-h*.25);ctx.arc(w/2,-h*.25,h*1.22,Math.PI*.28,Math.PI*.72);ctx.closePath();ctx.clip();
+  const shift=state==='moved'?.35:0;const n=Math.round(w*h/18);
+  for(let i=0;i<n;i++){const x=r()*w,y=r()*h;const band=Math.sin(y/h*9+shift*6+t*.6)*.5+.5;const v=(r()*.55+band*.45)*(1-y/h*.35);ctx.fillStyle=`rgba(${150+v*105},${160+v*95},255,${v*.95})`;ctx.fillRect(x+Math.sin(t+y)*1.5,y,2.5,2.5)}
+  ctx.restore()}
+function drawForce(c,t,sim){const ctx=c.getContext('2d');const w=c.width,h=c.height;ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);const cols=['#d9a9ea','#8888ff','#aab0ff','#ffffff','#c4c8ff'];
+  for(let i=0;i<5;i++){let v=Math.max(0,Math.sin(t*.5+i*1.3))*22;let peg=false;if(sim.limit&&i===2){v=50;peg=true}const bw=w/5-6,x=i*(w/5)+3,bh=v/50*(h-16);ctx.fillStyle=peg?'#e3a33a':cols[i];ctx.fillRect(x,h-4-bh,bw,bh);ctx.fillStyle='#9aa0ff';ctx.font='9px Source Code Pro,monospace';ctx.fillText(['T','I','M','R','L'][i],x+bw/2-3,10)}}
+
+
+/* ---------- who ---------- */
+function renderWho(){const all=PEOPLE.reduce((a,p)=>a+p.takes.length,0);$('greet').innerHTML=`welcome back. <b>${all} takes</b> so far.`;
+  $('faces').innerHTML=PEOPLE.map(p=>{return `<button class="face" data-p="${p.id}"><div class="pic tone glitchy"><img class="art" src="${p.art}" alt="">${p.photo?'':`<div class="init">${p.init}</div>`}</div><div class="name">${p.name}</div><div class="sub">${p.takes.length?`${fmtH(total(p))} · ${p.takes.length} takes`:'new today'}</div></button>`}).join('')+
+  `<button class="face new" id="face-new"><div class="pic"><div class="init">+</div></div><div class="name">someone new</div><div class="sub">a photo and a name</div></button>`;
+  $('faces').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>signIn(PEOPLE.find(p=>p.id===b.dataset.p)));
+  $('face-new').onclick=()=>{S.newPhoto=null;S.newHands={};$('new-name').value='';$('new-pic').innerHTML='<span class="mono">no photo yet</span>';document.querySelectorAll('#hands4 button').forEach(b=>{b.classList.remove('done');const c=b.querySelector('canvas');if(c)c.remove()});checkNew();show('new')}}
+function signIn(p){S.person=p;$('chip-img').src=p.art;$('chip-name').textContent=p.name;renderHome();show('home');
+  const t=today(p);const g=p.lastGlove==='wuji'?' the wuji glove is ready for you.':'';
+  strip(p.takes.length?`hi ${p.name}. ${fmtH(total(p))} so far${t?`, ${fmtH(t)} today`:''}.${g}${p.profile?'':' hand photos whenever you like.'}`:`hi ${p.name}, welcome. start with the first piece.`,{ttl:6000,id:'hi'})}
+function signOut(){S.person=null;clearStrip('hi');renderWho();show('who')}
+
+/* ---------- someone new: the station camera takes the photo ---------- */
+function snap(w,h){const v=$('newcam');const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');
+  const vw=v.videoWidth||640,vh=v.videoHeight||360;const s=Math.max(w/vw,h/vh);const dw=vw*s,dh=vh*s;
+  try{ctx.drawImage(v,(w-dw)/2,(h-dh)/2,dw,dh)}catch(e){ctx.fillStyle='#2b40d8';ctx.fillRect(0,0,w,h)}
+  const img=ctx.getImageData(0,0,w,h),d=img.data;for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;const l=(d[i]*.3+d[i+1]*.59+d[i+2]*.11);const dot=((x%3)===1&&(y%3)===1)?-40:0;const v=Math.max(0,Math.min(255,l*1.15+dot-10));d[i]=v*.75+30;d[i+1]=v*.78+30;d[i+2]=Math.min(255,v*1.05+60)}
+  ctx.putImageData(img,0,0);return c}
+function checkNew(){$('new-go').disabled=!(S.newPhoto&&$('new-name').value.trim().length>0)}
+$('new-shot').onclick=()=>{$('shutter').classList.remove('go');void $('shutter').offsetWidth;$('shutter').classList.add('go');const c=snap(300,300);S.newPhoto=c.toDataURL('image/jpeg',.85);$('new-pic').innerHTML='';const cc=document.createElement('canvas');cc.width=300;cc.height=300;cc.getContext('2d').drawImage(c,0,0);$('new-pic').appendChild(cc);checkNew()};
+$('new-name').oninput=checkNew;
+document.querySelectorAll('#hands4 button').forEach(b=>b.onclick=()=>{const c=snap(150,200);const old=b.querySelector('canvas');if(old)old.remove();b.prepend(c);b.classList.add('done');S.newHands[b.dataset.h]=true});
+$('new-later').onclick=e=>{e.preventDefault();strip('fine. we can do the hand photos any time.',{ttl:3500})};
+$('new-back').onclick=()=>show('who');
+$('new-go').onclick=()=>{const name=$('new-name').value.trim().toLowerCase();const p={id:'p'+Date.now(),name,art:S.newPhoto,photo:true,init:name[0].toUpperCase(),seed:Date.now()%1000,takes:[],profile:Object.keys(S.newHands).length>=4,hand:190,lastGlove:'manus'};PEOPLE.push(p);signIn(p)};
+
+/* ---------- home: sets of pieces ---------- */
+function livePieces(){return PIECES.filter(p=>!p.retired)}
+function thinTags(){return thinByTag().slice(0,3).map(x=>x.v)}
+function nextForPerson(p){const thin=thinTags();const list=[];for(const b of livePieces())for(const h of b.hands){const d=done(p,b,h);if(d<GOAL){const helps=Object.values(b.tags).find(t=>thin.includes(t))||(h==='both'&&thin.includes('both hands')?'both hands':null);list.push({b,h,d,helps,score:(GOAL-d)*.5+d+(helps?1.5:0)})}}
+  list.sort((x,y)=>(y.score-x.score)||((x.h==='right'?0:1)-(y.h==='right'?0:1))||(PIECES.indexOf(x.b)-PIECES.indexOf(y.b)));return list}
+function scenarioFor(b){return SCEN[b.set]}
+function card(b,p,hand,opts={}){const sc=scenarioFor(b);const hs=b.hands;const counts=hs.map(h=>opts.everyone?PEOPLE.reduce((a,q)=>a+done(q,b,h),0):done(p,b,h));const full=!opts.everyone&&counts.every(c=>c>=GOAL);const h=hand||hs[counts.indexOf(Math.min(...counts))];
+  const pic=opts.drawing?`<div class="pic paper tone"><img class="art" src="${opts.drawing}" alt="" style="filter:none">`:`<div class="pic tone glitchy"><img class="art" src="${b.art}" alt="">`;
+  return `<button class="card ${full?'done':''} ${b.retired?'retired':''}" data-b="${b.id}" data-h="${h}">${pic}<span class="len">${b.min} min</span><div class="hand">${hs.map((hh,i)=>`<span class="${!opts.everyone&&counts[i]>=GOAL?'dim':''}">${hh} ${counts[i]}${opts.everyone?'':'/'+GOAL}</span>`).join('')}</div><div class="in" title="what this take records">${'<i></i>'.repeat(2+(sc.force?1:0)+sc.cams.length)}</div></div><div class="txt"><div class="title">${b.title}</div><div class="verb">${b.verb}</div>${opts.everyone?`<div class="tags">${Object.values(b.tags).map(t=>`<span>${t}</span>`).join('')}</div>`:`<div class="bars">${hs.map((hh,i)=>`<div class="bar"><i style="width:${Math.min(100,counts[i]/GOAL*100)}%"></i></div>`).join('')}</div>`}<div class="meta"><span>${opts.everyone?`v${b.version} · by ${b.by}${b.retired?' · retired':''}`:full?'done':`next: ${h}`}</span></div></div></button>`}
+function renderHome(){const p=S.person;const nx=nextForPerson(p)[0];const b=nx?nx.b:PIECES[0],h=nx?nx.h:'right';S.piece=b;S.hand=h;
+  $('hero-eyebrow').textContent='next';$('hero-title').textContent=b.title;
+  $('hero-sub').textContent=`${b.verb} ${h==='both'?'both hands':h+' hand'} · ${b.min} min`;
+  $('rows').innerHTML=SETS.map(r=>`<div class="row"><h2>${r.name}${r.note?`<span class="mono mute">${r.note}</span>`:''}</h2><div class="cards">${livePieces().filter(b=>b.set===r.id).map(b=>card(b,p)).join('')}</div></div>`).join('')+
+   (p.takes.length?`<div class="row"><h2>done this week<span class="mono mute">${p.takes.filter(t=>NOW-t.t<7*DAY).length} takes · ${fmtH(p.takes.filter(t=>NOW-t.t<7*DAY).reduce((a,t)=>a+t.sec,0))}</span></h2><div class="cards">${p.takes.slice(0,8).map(t=>`<button class="card" data-take="${t.t}"><div class="pic paper tone"><img class="art" src="${takeDrawing(t)}" alt="" style="filter:none"><span class="len">${fmtC(t.sec)}</span><div class="hand"><span>${t.hand}</span></div></div><div class="txt"><div class="title">${t.piece.title}</div><div class="verb">${new Date(t.t).toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit'})}${t.helper?' · with '+t.helper:''}</div><div class="meta"><span class="pill ${gradeOf(t).g}">${gradeOf(t).g}</span></div></div></button>`).join('')}</div></div>`:'');
+  document.querySelectorAll('#rows .card[data-b]').forEach(c=>c.onclick=()=>pick(PIECES.find(b=>b.id===c.dataset.b),c.dataset.h));
+  document.querySelectorAll('#rows .card[data-take]').forEach(c=>c.onclick=()=>{openTake(p,p.takes.find(t=>String(t.t)===c.dataset.take))})}
+function pick(b,hand){S.piece=b;S.hand=hand;S.mode='take';renderReady();show('ready')}
+
+/* ---------- health model: what is stale is asked for, nothing else ---------- */
+function gloveFor(side){return STATION.gloves[side==='left'?'left':'right']}
+function computeHealth(){const s=S.sim,h={},g=gloveFor(S.hand);const L=LIVE.on&&LIVE.status?LIVE.status:null;
+  if(L){const gl=(L.gloves||[]).find(x=>x.side===S.hand)||(L.gloves||[])[0];const manusOn=L.manus&&L.manus.state==='streaming'&&(!gl||gl.live!==false);h.glove=s.gloveOff||!manusOn?'off':'live';g.live=manusOn;if(gl&&gl.battery_percent!=null)g.battery=gl.battery_percent}
+  else h.glove=s.gloveOff||!g.live?'off':'live';
+  h.calib=(NOW-g.calibratedAt>30*60000)?'needed':'fresh';
+  h.wujiUser=g.brand==='wuji'&&!g.wujiUser?'needed':'ok';
+  h.probe=s.probeOff||(L&&!(L.ultrasound&&L.ultrasound.state==='streaming'))?'off':s.probeMoved?'moved':'good';
+  const sc=S.piece?scenarioFor(S.piece):null;
+  h.force=sc&&sc.force?(s.limit?'limit':(STATION.force.zeroedAt?'ok':'unzeroed')):'na';
+  h.cams=sc?sc.cams.map(role=>({role,cam:STATION.cameras.find(c=>c.role===role)})):[];
+  if(L&&L.disk_remaining_min!=null)STATION.storage.roomMin=Math.round(L.disk_remaining_min);
+  h.disk=s.diskLow?'low':STATION.storage.roomMin<60?'low':'ok';h.live=!!L;S.health=h;return h}
+const SENTENCES={gloveOff:'The glove disconnected. Press its button.',probeOff:'The probe isn\'t on skin. Add a little gel and press it on.',probeMoved:'The image looks different from last time. Nudge the probe a touch toward the elbow.',limit:'Sensor 3 is at its limit. Press a little softer.',diskLow:'The disk has 40 minutes left. Finish this take, then we move things over.'};
+function dotsHTML(h){const d=(label,state)=>`<span><i class="dot ${state}"></i>${label}</span>`;
+  return d('glove',h.glove==='off'?'stop':h.calib==='needed'?'warn':'')+d('probe',h.probe==='off'?'stop':h.probe==='moved'?'warn':'')+(h.force==='na'?'':d('sensors',h.force==='limit'?'warn':h.force==='unzeroed'?'wait':''))+(h.cams.length?d(h.cams.length>1?'cameras':'camera',h.cams.every(c=>c.cam&&c.cam.live)?'':'warn'):'')+d('disk',h.disk==='low'?'warn':'')}
+function refreshDots(){const h=computeHealth();$('top-dots').innerHTML=dotsHTML(h);if(!$('wired').hidden)renderWired();$('foot').innerHTML=dotsHTML(h);
+  for(const k of ['gloveOff','probeOff','probeMoved','limit','diskLow']){if(S.sim[k]&&S.screen==='record')strip(SENTENCES[k],{kind:k==='gloveOff'||k==='probeOff'?'stop':'warn',ok:'ok',id:k});else clearStrip(k)}
+  if(LIVE.on){const L=LIVE.status;const txt=L?(L.not_ready_reasons||[]).concat(L.problems||[]).join(' · '):'';if(txt&&S.screen!=='who')strip(`the recorder says: ${txt}`,{kind:'warn',id:'live-reasons'});else clearStrip('live-reasons');
+    $('foot').insertAdjacentHTML('beforeend',`<span class="live">live · ${LIVE.connected?(L?`recorder ${L.state}${L.recording?' · recording':''} · glove ${L.manus&&L.manus.rate_hz!=null?Math.round(L.manus.rate_hz):'–'} Hz · image ${L.ultrasound&&L.ultrasound.rate_hz!=null?Math.round(L.ultrasound.rate_hz):'–'} Hz`:'waiting for status'):'connecting to '+LIVE.url}</span>`)}
+  if(S.screen==='record'){renderHud();hum(!!S.sim.probeOff)}else hum(false)}
+
+/* ---------- get ready ---------- */
+let readyTimers=[];
+function renderReady(){readyTimers.forEach(clearTimeout);readyTimers=[];const b=S.piece,h=computeHealth(),sc=scenarioFor(b),g=gloveFor(S.hand);const handWord=S.hand==='both'?'both hands':S.hand+' hand';
+  $('ready-title').textContent=b.title;$('ready-sub').textContent=`${handWord} · ${b.min} min`;
+  $('ready-swap').hidden=S.hand==='both';$('ready-swap').textContent=`switch to the ${S.hand==='right'?'left':'right'} hand`;
+  $('ready-inputs').innerHTML=[`${S.hand==='both'?'both':S.hand} ${g.brand} glove${S.hand==='both'?'s':''}`,'probe',sc.force?'force object':null,...sc.cams.map(r=>r+' camera'),sc.mic?'microphone':null].filter(Boolean).map(x=>`<span>${x}</span>`).join('');
+  const steps=[];
+  steps.push({id:'glove',t:`Put the ${S.hand==='both'?'gloves':S.hand+' glove'} on and press the button`,s:'',st:h.glove==='off'?'waiting…':'live',ok:h.glove!=='off',wait:h.glove==='off'});
+  if(h.wujiUser==='needed'&&h.glove!=='off')steps.push({id:'wuji',t:'The wuji glove needs to meet you once',s:'Hold still, then open and close three times.',st:'0:45',ring:true});
+  if(h.calib==='needed'&&h.glove!=='off')steps.push({id:'calib',t:'Calibrate: open, fist, spread',s:'Thirty seconds.',st:'0:30',ring:true});
+  steps.push({id:'probe',t:'Probe on, looks like last time',s:'',st:h.probe==='good'?'matches':h.probe==='moved'?'different':'no image',ok:h.probe==='good',thumbs:true});
+  if(sc.force)steps.push({id:'zero',t:'Hold the object still for two seconds',s:'',st:'2 s',ring:true,short:true});
+  const missing=h.cams.filter(c=>!c.cam||!c.cam.live);if(missing.length)steps.push({id:'cams',t:`The ${missing.map(c=>c.role).join(' and ')} camera is not plugged in`,s:'optional',st:'optional',ok:false,warn:true});
+  steps.push({id:'room',t:'Room on the disk',s:h.disk==='low'?'40 minutes left. This take fits.':`${fmtH(STATION.storage.roomMin*60)}.`,st:h.disk==='low'?'40 min':fmtH(STATION.storage.roomMin*60),ok:h.disk!=='low',warn:h.disk==='low'});
+  $('ready-line').textContent=steps.length<=3?`Only ${steps.length} things to look at.`:'A few more than usual: the glove has been off for a while.';
+  $('steps').innerHTML=steps.map(s=>`<div class="step ${s.ok?'ok':''} ${s.wait?'wait':''}" data-step="${s.id}"><div class="ico">${s.ring?`<svg viewBox="0 0 52 52"><circle class="track" cx="26" cy="26" r="24"/><circle class="prog" cx="26" cy="26" r="24"/></svg><span class="n">${s.short?'2 s':s.id==='wuji'?'45':'30'}</span>`:s.ok?'✓':s.wait?'…':'!'}</div><div><div class="t">${s.t}</div><div class="s">${s.s}</div></div>${s.thumbs?`<div class="thumbs"><div class="tone light"><canvas class="usnow" width="72" height="50"></canvas><span>now</span></div><div class="tone light"><canvas class="uslast" width="72" height="50"></canvas><span>last take</span></div></div>`:`<div class="st">${s.st}</div>`}</div>`).join('');
+  document.querySelectorAll('.usnow').forEach(c=>drawUS(c,0,h.probe));document.querySelectorAll('.uslast').forEach(c=>drawUS(c,0,'good',true));
+  let delay=600;
+  for(const s of steps){if(s.ring){const el=document.querySelector(`[data-step="${s.id}"]`);const dur=s.short?2000:s.id==='wuji'?7000:6000;readyTimers.push(setTimeout(()=>{el.classList.add('wait');const c=el.querySelector('.prog');c.style.transition=`stroke-dashoffset ${dur}ms linear`;c.style.strokeDashoffset=0;let left=s.short?2:s.id==='wuji'?45:30;const n=el.querySelector('.n');const stepv=s.short?1:s.id==='wuji'?9:5;const iv=setInterval(()=>{left-=stepv;n.textContent=s.short?left+' s':left;if(left<=0)clearInterval(iv)},dur/(s.short?2:s.id==='wuji'?5:6));readyTimers.push(setTimeout(()=>{el.classList.remove('wait');el.classList.add('ok');el.querySelector('.ico').innerHTML='✓';const st=el.querySelector('.st');if(st)st.textContent='done';if(s.id==='calib')g.calibratedAt=NOW;if(s.id==='wuji')g.wujiUser=S.person.name;if(s.id==='zero')STATION.force.zeroedAt=NOW;checkReady()},dur+100))},delay));delay+=dur+400}}
+  checkReady()}
+function checkReady(){const h=computeHealth();const pending=document.querySelectorAll('.step:not(.ok):not([data-step="cams"])').length;const blocked=h.glove==='off'||h.probe==='off';$('ready-go').disabled=blocked||pending>0;
+  if(!blocked&&pending===0)strip('all good. space when you are.',{ttl:3500,id:'ready'})}
+$('ready-swap').onclick=()=>{S.hand=S.hand==='right'?'left':'right';renderReady()};
+
+/* ---------- the HUD: a tile for every input the scenario uses ---------- */
+const TOUCH={};function calm(id,el,fine){const sig=el.className.replace(/ ?(calm|alert)/g,'')+'|'+el.textContent;const now=performance.now();if(TOUCH[id]&&TOUCH[id].sig!==sig){TOUCH[id]={sig,at:now};el.classList.remove('alert');void el.offsetWidth;el.classList.add('alert')}else if(!TOUCH[id])TOUCH[id]={sig,at:now-7000};el.classList.toggle('calm',fine&&now-TOUCH[id].at>6000)}
+function applyCalm(){const h=S.health,sc=scenarioFor(S.piece);calm('glove',$('t-glove'),h.glove==='live'&&h.calib!=='needed');calm('probe',$('t-probe'),h.probe==='good');if(sc.force)calm('force',$('t-force'),h.force==='ok');calm('cams',$('cams'),h.cams.every(c=>c.cam&&c.cam.live))}
+function renderHud(){const h=S.health,g=gloveFor(S.hand),sc=scenarioFor(S.piece);const mins=Math.max(0,Math.round((NOW-g.calibratedAt)/60000));const k=(S.person.hand/DEMO_HAND).toFixed(2);
+  const tg=$('t-glove');tg.className='tile'+(h.glove==='off'?' off':h.calib==='needed'?' warn':'');tg.querySelector('.dot').className='dot '+(h.glove==='off'?'stop':h.calib==='needed'?'warn':'');
+  $('t-glove-v').innerHTML=h.glove==='off'?`${S.hand} ${g.brand} glove disconnected<small>press its button</small>`:`${S.hand==='both'?'both':S.hand} ${g.brand} glove${S.hand==='both'?'s':''} · live<small>calibrated ${mins<1?'just now':mins+' min ago'} · battery ${g.battery}%${S.piece.free?'':` · demonstration scaled ×${k}`}</small>`;
+  const tp=$('t-probe');tp.className='tile'+(h.probe==='off'?' off':h.probe==='moved'?' warn':'');tp.querySelector('.dot').className='dot '+(h.probe==='off'?'stop':h.probe==='moved'?'warn':'');
+  $('t-probe-v').innerHTML=h.probe==='off'?`not on skin<small>add gel, press on</small>`:h.probe==='moved'?`image looks different<small>nudge toward the elbow</small>`:`on skin · ${STATION.probe}<small>${STATION.preset} · battery ${STATION.probes.find(p=>p.id===STATION.probe).battery}%</small>`;
+  const tf=$('t-force');tf.hidden=!sc.force;if(sc.force){tf.className='tile'+(h.force==='limit'?' warn':'');tf.querySelector('.dot').className='dot '+(h.force==='limit'?'warn':h.force==='unzeroed'?'wait':'');$('t-force-v').innerHTML=h.force==='limit'?`sensor 3 at its limit<small>press a little softer</small>`:`five sensors · zeroed<small>${STATION.force.fingers.join(' ')}</small>`}
+  const cells=[];for(const role of sc.cams){const cam=STATION.cameras.find(c=>c.role===role);cells.push(cam&&cam.live?(cam.src==='video'&&!LIVE.on?`<div class="cell tone light"><video src="data/coach.mp4" muted loop playsinline autoplay></video><span class="tag">${role}</span></div>`:`<div class="cell tone light"><img data-role="${role}" src="${cam.src==='video'?ART.b:cam.src}" alt=""><span class="tag">${role}</span></div>`):`<div class="cell empty">no ${role}</div>`)}
+  for(const cam of STATION.cameras){if(!sc.cams.includes(cam.role)&&cells.length<4)cells.push(`<div class="cell empty" style="opacity:.45">${cam.role} · not in this take</div>`)}
+  while(cells.length<2)cells.push(`<div class="cell empty">add in station</div>`);
+  const html=`<div class="k"><span>cameras${sc.mic?' · mic':''}</span><span>${sc.cams.length} in this take</span></div>${cells.slice(0,4).join('')}`;if($('cams').dataset.html!==html){$('cams').innerHTML=html;$('cams').dataset.html=html;$('cams').querySelectorAll('video').forEach(v=>v.play().catch(()=>{}))}
+  applyCalm()}
+
+/* ---------- the proctor's output: mood, breathing, notes, assessment, correction ----------
+   In the real station the assessment every few minutes and the coupling judgement come from the model (see docs/proctor-spec.md);
+   here they are simulated from the test switches so the environment can be designed. */
+const ASSESS_EVERY=60;
+let PRO=null;
+function proReset(){PRO={level:0,mood:'good',notes:[],lastAssess:0,assessing:false,assessUntil:0,correction:null,win:{n:0,good:0,fingers:[0,0,0,0,0],slow:0,small:0},goodRun:0,corrections:0,lastCorrectionAt:-999};$('notes').innerHTML='';$('assess').innerHTML='';$('corr').hidden=true;setMood(0,'good')}
+function setMood(level,mood){const el=$('s-record');el.style.setProperty('--mood',mood==='stop'?0:level.toFixed(3));el.style.setProperty('--breath',(mood==='stop'?6:6-3.5*level).toFixed(2)+'s');el.classList.toggle('drift',mood==='drift');el.classList.toggle('off',mood==='off');el.classList.toggle('stop',mood==='stop')}
+function note(text,kind){if(!PRO||!REC)return;PRO.notes.push({t:REC.acc,text,kind:kind||''});const el=$('notes');el.innerHTML=PRO.notes.slice(-4).map(n=>`<div><b>${fmtC(n.t)}</b><span>${n.text}</span></div>`).join('')}
+function speak(text){try{if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(text);u.rate=.95;u.pitch=1.05;u.volume=.9;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+function proObserve(dt,off,worst,good,blocked){if(!PRO||!REC||!REC.running)return;const sim=S.sim;const target=blocked?1:off;PRO.level+=(target-PRO.level)*Math.min(1,dt*1.5);
+  const up=PRO.mood==='good'?.24:PRO.mood==='drift'?.6:.5,down=PRO.mood==='off'?.45:.1;const mood=blocked?'stop':PRO.level>up?(PRO.mood==='good'?'drift':'off'):PRO.level<down?(PRO.mood==='off'?'drift':'good'):PRO.mood;
+  if(mood!==PRO.mood){const was=PRO.mood;PRO.mood=mood;if(REC.acc-(PRO.lastMoodNote||-99)>8){if(mood==='drift'&&was==='good')note('the hand started drifting from the purple');if(mood==='good'&&PRO.notes.length)note('back with the purple hand, good');PRO.lastMoodNote=REC.acc}}
+  setMood(PRO.level,mood);
+  const w=PRO.win;w.n++;if(good)w.good++;if(off>.25)w.fingers[worst]++;if(sim.slow)w.slow++;if(sim.small)w.small++;
+  PRO.goodRun=good?PRO.goodRun+dt:0;
+  if(PRO.correction){const c=PRO.correction;if(PRO.goodRun>1.5||REC.acc>c.until){endCorrection(PRO.goodRun>1.5)}}
+  if(!PRO.assessing&&!PRO.correction&&!blocked&&REC.acc-PRO.lastAssess>=ASSESS_EVERY)startAssessment()}
+function startAssessment(){PRO.assessing=true;PRO.assessUntil=performance.now()+2600;PRO.lastAssess=REC.acc;$('assess').innerHTML=`<i></i>looking at the last ${ASSESS_EVERY>=120?'few minutes':'minute'}…`}
+function finishAssessment(){PRO.assessing=false;$('assess').innerHTML='';const w=PRO.win,sim=S.sim,n=Math.max(1,w.n);const frac=w.good/n;const worst=w.fingers.indexOf(Math.max(...w.fingers));const fingerShare=w.fingers[worst]/n;let verdict;
+  if(sim.probeOff||sim.probeMoved)verdict={text:sim.probeOff?'the picture went dark for a while: the probe lost the skin. a little gel and press it on.':'the picture has moved from your last take. nudge the probe toward the elbow.',fix:false};
+  else if(w.slow/n>.5)verdict={text:'you are a step behind the demonstration most of the time. let\'s take one step together, a touch quicker.',fix:'pace'};
+  else if(w.small/n>.5)verdict={text:'the hand opens less than the purple. let\'s do one step together, opening wider.',fix:'open'};
+  else if(fingerShare>.35)verdict={text:`the ${FING[worst]} keeps falling short of the purple. let\'s do that step together.`,fix:'finger',finger:worst};
+  else if(frac<.5)verdict={text:'the motion isn\'t quite the piece yet. let\'s do this step together, slowly.',fix:'step'};
+  else verdict={text:['the last minute looks right. keep this up.','that was the piece. lovely, keep going.','good shape, good pace. carry on.'][PRO.notes.length%3],fix:false};
+  note(`assessment: ${verdict.text}`,'assess');PRO.win={n:0,good:0,fingers:[0,0,0,0,0],slow:0,small:0};
+  if(verdict.fix){if(REC.acc-PRO.lastCorrectionAt>25&&PRO.corrections<6)startCorrection(verdict)}else{chord()}}
+function startCorrection(v){PRO.correction={mode:v.fix,finger:v.finger,text:v.text,since:REC.acc,until:REC.acc+14,step:REC.lastStep};PRO.corrections++;PRO.lastCorrectionAt=REC.acc;$('corr-big').textContent=v.text.split(' let')[0];$('corr').hidden=false;speak(v.text);note('correction: '+v.text.split('.')[0],'corr')}
+function endCorrection(matched){PRO.correction=null;$('corr').hidden=true;if(matched){chord();note('that\'s it, carry on');speak('that\'s it, carry on')}else note('moved on; we\'ll look again at the next assessment')}
+function takeNote(){if(!PRO)return '';const n=PRO.notes;const corr=n.filter(x=>x.kind==='corr').length;const fingers=PRO.notesFinger||null;const first=`${REC.reps} good repeats in ${fmtC(Math.round(REC.acc))}${corr?`, ${corr} correction${corr>1?'s':''}`:''}.`;const second=corr?` the thing to watch: ${n.filter(x=>x.kind==='corr').slice(-1)[0].text.replace('correction: ','')}.`:' nothing to fix; the hand stayed with the purple.';return first+second}
+
+/* ---------- record loop + proctor, and demonstration mode ---------- */
+let REC=null,raf=0;
+function stepIndex(b,demoT){const m=b.demo.marks;const tt=demoT%b.demo.dur;let i=0;for(let k=0;k<m.length;k++)if(tt>=m[k])i=k;return i}
+function renderSteps(b,i,marksDone){$('steplist').innerHTML=b.steps.map((s,k)=>`<li class="${k===i?'on':''} ${marksDone&&k<marksDone?'did':''}">${s}</li>`).join('')}
+function startRecordLoop(){const b=S.piece,demoMode=S.mode==='demo';$('rec-block').textContent=`${b.title} · ${S.hand==='both'?'both hands':S.hand+' hand'}${demoMode?' · recording the demonstration':''}`;$('rec-verb').textContent=b.verb;verbLine(b);
+  const v=$('demo');v.currentTime=0;v.hidden=!!b.free||demoMode;v.classList.toggle('mirror',S.hand==='left');$('demo-still').hidden=!(b.free||demoMode);$('demo-still').textContent=demoMode?'you are the demonstration. enter marks each step.':'';$('demo-tag').textContent=demoMode?'the camera':b.free?'just you':'the demonstration'+(S.hand==='left'?' · mirrored':'');$('key').hidden=!!b.free||demoMode;if(!b.free&&!demoMode)v.play().catch(()=>{});
+  REC={acc:0,demoT:0,running:false,last:performance.now(),redo:0,dur:demoMode?DEMO_DUR*3:b.min*60,ended:false,reps:0,offSince:null,goodWindow:[],step:0,lastStep:-1,marks:[]};proReset();
+  $('state').textContent='ready';$('word').textContent=demoMode?'press space, do the piece, enter at each step':b.free?'press space, then do whatever you like':'press space when you\'re ready';$('word').className='word';$('clock').textContent='0:00';$('ring').style.strokeDashoffset=302;$('ring-of').textContent='of '+fmtC(REC.dur);
+  $('reps').innerHTML=demoMode?`0<small>steps marked</small>`:`0<small>good repeats</small>`;$('now-k').textContent=demoMode?'the steps':'now';$('now-v').textContent=b.steps[0];renderSteps(b,0,0);
+  $('keys').innerHTML=demoMode?`<div><kbd>space</kbd>start · pause</div><div><kbd>enter</kbd>mark the next step</div><div><kbd>esc</kbd>stop · publish</div>`:`<div><kbd>space</kbd>start · pause</div><div><kbd>⌫</kbd>redo 30 s</div><div><kbd>esc</kbd>stop · save</div>`;
+  refreshDots();raf=requestAnimationFrame(tick)}
+function stopRecordLoop(){cancelAnimationFrame(raf);setMood(0,'good');try{speechSynthesis&&speechSynthesis.cancel()}catch(e){}$('demo').pause();$('cams').querySelectorAll('video').forEach(v=>v.pause());REC=null;hum(false)}
+function tick(now){if(!REC)return;const dt=Math.min(.1,(now-REC.last)/1000);REC.last=now;const b=S.piece,sim=S.sim;const blocked=sim.gloveOff||sim.probeOff;const demoMode=S.mode==='demo';
+  if(REC.running&&!blocked)REC.acc+=dt;
+  const c=$('hand');const [W,H]=fit(c);const ctx=c.getContext('2d');ctx.clearRect(0,0,W,H);const view=handView(W,H,S.hand);
+  const corr=PRO&&PRO.correction;const rate=(sim.slow?.55:1)*(corr?.6:1);REC.demoT+=(REC.running&&!blocked?dt*rate:0);
+  if(PRO&&PRO.assessing&&now>PRO.assessUntil)finishAssessment();
+  const t=REC.demoT;const k=S.person.hand/DEMO_HAND;let ref=scaled(frameAt(t),k);
+  const lag=sim.slow?.9:.33;let you=scaled(frameAt(Math.max(0,t-lag)),k).map(p=>sim.small?[p[0]*.8,p[1]*.85,p[2]*.8]:p.slice());
+  if(LIVE.on&&LIVE.pose){you=LIVE.pose.map(p=>p.slice());if(LIVE.selfDemo){const past=livePoseAt(performance.now()-330);if(past)ref=past}}
+  if(sim.finger){for(const n of [16,17,18,19])you[n]=[you[n][0]*.75,you[n][1],you[n][2]-30]}
+  if(sim.wander){const w=now/700;you=you.map(p=>[p[0]*.9+Math.sin(w)*25,p[1]+Math.cos(w*.8)*30,p[2]-20])}
+  const errs=(b.free||demoMode)?[0,0,0,0,0]:tipErrors(ref,you);const worst=errs.indexOf(Math.max(...errs));const worstErr=Math.max(...errs);const off=Math.max(0,Math.min(1,(worstErr-35)/45));const good=off===0;
+  if(off>0&&REC.running){const a=off*5;you=you.map(p=>[p[0]+(Math.random()-.5)*a,p[1]+(Math.random()-.5)*a,p[2]+(Math.random()-.5)*a])}
+  const warm=`rgb(255,${Math.round(255-off*90)},${Math.round(255-off*150)})`;
+  const views=S.hand==='both'?[{...view,cx:W*.72,mirror:false},{...view,cx:W*.28,mirror:true}]:[view];
+  for(const vw of views){
+    if(!b.free&&!demoMode){drawHand(ctx,ref,vw,corr?'rgba(217,169,234,.8)':'rgba(217,169,234,.5)',{w:corr?H/32:H/40,alpha:.95,palm:'rgba(217,169,234,.9)',glow:corr?'rgba(217,169,234,.9)':null,glowSize:H/26});drawHand(ctx,ref,vw,'rgba(120,60,160,.9)',{w:H/70,alpha:.9,palm:'transparent'});
+      if(corr&&corr.mode==='finger'){const RP=ref.map(q=>project(q,vw));const [x,y]=RP[TIPS[corr.finger]];ctx.save();ctx.strokeStyle='rgba(217,169,234,1)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,H/18,0,7);ctx.stroke();ctx.restore()}}
+    drawHand(ctx,you,{...vw,cx:vw.cx-3},'rgba(136,136,255,.55)',{w:H/95,alpha:.7,palm:'transparent'});
+    drawHand(ctx,you,{...vw,cx:vw.cx+3},'rgba(255,170,220,.45)',{w:H/95,alpha:.6,palm:'transparent'});
+    const P=drawHand(ctx,you,vw,demoMode?'#d9a9ea':warm,{w:H/95,alpha:corr&&!good?.55:1,glow:good&&REC.running&&!b.free&&!demoMode?'rgba(255,255,255,.9)':demoMode&&REC.running?'rgba(217,169,234,.8)':null,glowSize:H/30,palm:demoMode?'rgba(217,169,234,.5)':'rgba(255,255,255,.45)'});
+    if(off>.25&&REC.running&&!b.free&&!demoMode){const [x,y]=P[TIPS[worst]];ctx.save();ctx.strokeStyle='rgba(255,196,107,.9)';ctx.lineWidth=2;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(x,y,H/22,0,7);ctx.stroke();ctx.restore()}}
+  if(!demoMode&&!b.free)proObserve(dt,off,worst,good,blocked);
+  const w_=$('word');
+  if(REC.running){if(blocked){w_.textContent='paused until that\'s fixed';w_.className='word adjust'}
+    else if(corr){w_.textContent=corr.mode==='pace'?'a touch quicker, with the purple hand':corr.mode==='open'?'open wider, like the purple hand':corr.mode==='finger'?`watch the ${FING[corr.finger]}, follow the ring`:'slowly, with the purple hand';w_.className='word adjust'}
+    else if(demoMode){w_.textContent=`step ${REC.marks.length+1} of ${b.steps.length}: ${b.steps[Math.min(REC.marks.length,b.steps.length-1)]}`;w_.className='word good'}
+    else if(b.free){w_.textContent=['keep going','lovely','anything goes','that counts too'][Math.floor(REC.acc/20)%4];w_.className='word good'}
+    else if(sim.slow){w_.textContent='take your time, the demonstration waits for you';w_.className='word adjust'}
+    else if(sim.small){w_.textContent='open a little wider';w_.className='word adjust'}
+    else if(off>.25){w_.textContent=`${FING[worst]}: a little closer to the purple`;w_.className='word adjust'}
+    else{w_.textContent=good?'good, keep going':'follow the purple hand';w_.className='word '+(good?'good':'')}}
+  if(REC.running&&!blocked&&!b.free&&!demoMode){REC.goodWindow.push(good);if(REC.goodWindow.length>180)REC.goodWindow.shift();
+    const si=stepIndex(b,REC.demoT);if(si!==REC.lastStep){if(REC.lastStep>=0&&si<REC.lastStep){const frac=REC.goodWindow.filter(Boolean).length/Math.max(1,REC.goodWindow.length);if(frac>.6){REC.reps++;$('reps').innerHTML=`${REC.reps}<small>good repeats</small>`;$('reps').animate([{transform:'scale(1.15)'},{transform:'none'}],{duration:400});chord()}else if(PRO&&!PRO.correction){const w=PRO.win;const wf=w.fingers.indexOf(Math.max(...w.fingers));note(`that repeat didn't count${w.fingers[wf]>w.n*.3?`, the ${FING[wf]} stayed short`:''}`)}}REC.lastStep=si;$('now-v').textContent=b.steps[si];renderSteps(b,si,0)}
+    if(off>.5){if(REC.offSince===null)REC.offSince=REC.acc;else if(REC.acc-REC.offSince>7){const cut=Math.min(8,REC.acc);REC.acc-=cut;REC.demoT=Math.max(0,REC.demoT-cut);REC.redo++;REC.offSince=null;REC.goodWindow=[];strip(`that bit didn't count. once more from here, with the purple hand.`,{ttl:4000,id:'proctor'})}}else REC.offSince=null}
+  if(Math.floor(now/90)%2===0){if(LIVE.on&&LIVE.image&&S.health.probe!=='off'){const c=$('t-probe-c'),ctx2=c.getContext('2d');ctx2.fillStyle='#000';ctx2.fillRect(0,0,c.width,c.height);const ih=c.height,iw=LIVE.image.width*ih/LIVE.image.height;ctx2.drawImage(LIVE.image,(c.width-iw)/2,0,iw,ih)}else drawUS($('t-probe-c'),now/1000,S.health.probe||'good');if(scenarioFor(b).force)drawForce($('t-force-c'),now/1000,sim)}
+  if(Math.floor(now/500)!==Math.floor((now-dt*1000)/500))applyCalm();
+  $('clock').textContent=fmtC(REC.acc);$('ring').style.strokeDashoffset=302*(1-Math.min(1,REC.acc/REC.dur));
+  if(REC.acc>=REC.dur&&!REC.ended){REC.ended=true;demoMode?publishDemo():finishTake()}
+  raf=requestAnimationFrame(tick)}
+function toggleRun(){if(!REC)return;audio();if(S.sim.gloveOff||S.sim.probeOff){strip('fix the red thing first.',{kind:'stop',ttl:3000,id:'blocked'});return}
+  REC.running=!REC.running;$('state').textContent=REC.running?'recording':'paused';$('flash').classList.remove('go');void $('flash').offsetWidth;$('flash').classList.add('go');
+  if(LIVE.on){if(REC.running&&!REC.liveStarted){REC.liveStarted=true;liveSend({command:'start_recording',session:{subject_id:S.person.name,task:S.piece.id,hand:S.hand==='both'?'both':S.hand,task_display_name:S.piece.title,task_description:S.piece.verb,notes:`station prototype · ${S.mode==='demo'?'demonstration':'take'} · piece v${S.piece.version}`,tags:['station',S.piece.set,...Object.values(S.piece.tags)]}})}else liveSend({command:'mark',label:REC.running?'resume':'pause'})}
+  if(!REC.running){$('word').textContent='paused. space to go on, esc to save';$('word').className='word';$('demo').pause()}else if(S.mode!=='demo'){$('demo').play().catch(()=>{})}}
+function markStep(){if(!REC||S.mode!=='demo'||!REC.running)return;const b=S.piece;if(REC.marks.length>=b.steps.length){strip('every step is marked. esc publishes.',{ttl:3000,id:'marks'});return}REC.marks.push(+REC.acc.toFixed(1));$('reps').innerHTML=`${REC.marks.length}<small>steps marked</small>`;renderSteps(b,Math.min(REC.marks.length,b.steps.length-1),REC.marks.length);chord()}
+function redo(){if(!REC||REC.acc<=0||S.mode==='demo')return;const cut=Math.min(30,REC.acc);REC.acc-=cut;REC.demoT=Math.max(0,REC.demoT-cut);REC.redo++;if(LIVE.on)liveSend({command:'mark',label:'redo',data:{seconds:Math.round(cut)}});strip(`rewound ${Math.round(cut)} s. carry on from here.`,{ttl:3000,id:'redo'})}
+function finishTake(){if(LIVE.on&&REC.liveStarted)liveSend({command:'stop_recording',reason:'participant'});const secs=Math.round(REC.acc);const p=S.person;const b=S.piece;const take={t:NOW,piece:b,pieceVersion:b.version,hand:S.hand,sec:secs,verdict:'good',helper:'',redos:REC.redo,reps:REC.reps,seed:Math.floor(Math.random()*1e6)};p.takes.unshift(take);S.lastTakeAt=NOW;p.lastGlove=gloveFor(S.hand).brand;
+  $('done-plus').innerHTML=`+${Math.floor(secs/60)}<small>:${String(secs%60).padStart(2,'0')}</small>`;const st=streak(p);
+  $('done-line').textContent=`${b.free?'':REC.reps+' good repeats. '}that's ${fmtH(total(p))} with us${st>=2?`. ${['','','two','three','four','five','six','seven'][st]||st} days in a row!`:'. lovely.'}`;
+  $('done-drawing').innerHTML=`<img src="${takeDrawing(take)}" alt="">`;
+  const sc=scenarioFor(b);$('done-meta').textContent=`take ${new Date(NOW).toISOString().slice(0,16).replace('T',' ')} · station 2 · ${p.name} · ${S.hand} ${gloveFor(S.hand).brand} glove · probe ${STATION.probe} · ${STATION.preset}${sc.force?' · force object':''} · ${sc.cams.join(' + ')} camera${sc.cams.length>1?'s':''} · ${b.title.toLowerCase()} v${b.version} · ${REC.redo?REC.redo+' redo'+(REC.redo>1?'s':'')+' · ':''}every stream complete`;
+  take.notes=PRO?PRO.notes.slice():[];take.corrections=PRO?PRO.corrections:0;take.coupling=!!(PRO&&PRO.notes.some(n=>/probe left|disconnected/.test(n.text)));const gr=gradeOf(take);const corrN=take.notes.filter(x=>x.kind==='corr');take.note=`${b.free?'':REC.reps+' good repeats in '}${b.free?fmtC(secs)+' of free play':fmtC(secs)}${corrN.length?`, ${corrN.length} correction${corrN.length>1?'s':''}`:''}. ${corrN.length?`the thing to watch: ${corrN.slice(-1)[0].text.replace('correction: ','')}. `:''}graded ${gr.g}: ${gr.why}.`;$('done-takenote').textContent=take.note;$('done-notes').innerHTML=take.notes.slice(-8).map(n=>`<div><b>${fmtC(n.t)}</b><span>${n.text}</span></div>`).join('');
+  $('done-top').textContent=`saved · ${S.hand==='both'?'both hands':S.hand+' hand'} · ${b.title.toLowerCase()}${LIVE.on&&LIVE.status&&LIVE.status.trial_file?' · '+LIVE.status.trial_file.split('/').pop():''}`;
+  const seen=new Set();$('done-cards').innerHTML=nextForPerson(p).filter(n=>!seen.has(n.b.id)&&seen.add(n.b.id)).slice(0,5).map(n=>card(n.b,p,n.h)).join('');document.querySelectorAll('#done-cards .card').forEach(c=>c.onclick=()=>pick(PIECES.find(b=>b.id===c.dataset.b),c.dataset.h));
+  const J=$('jellies');J.innerHTML='';for(let i=0;i<18;i++){const s=document.createElement('span');s.style.left=(Math.random()*100)+'%';s.style.animationDuration=(6+Math.random()*6)+'s';s.style.animationDelay=(Math.random()*3)+'s';s.style.width=s.style.height=(18+Math.random()*30)+'px';J.appendChild(s)}
+  show('done')}
+function publishDemo(){if(LIVE.on&&REC.liveStarted)liveSend({command:'stop_recording',reason:'demonstration'});const b=S.piece;const marks=REC.marks.length?REC.marks:marksFor(b.steps.length);const dur=Math.max(4,Math.round(REC.acc));b.demo={dur,marks:marks.map(m=>Math.min(m,dur))};b.version++;b.by=S.person.name;b.made=NOW;
+  strip(`published: ${b.title} v${b.version}, ${fmtC(dur)}, ${marks.length} steps.`,{ttl:5000,id:'pub'});S.mode='take';renderRep();show('rep')}
+
+/* ---------- library ---------- */
+function thinByTag(){const out=[];for(const axis in TAGS)for(const v of TAGS[axis]){const n=PEOPLE.reduce((a,p)=>a+p.takes.filter(t=>gradeOf(t).g!=='rough'&&t.piece.tags[axis]===v).length,0);out.push({axis,v,n})}out.push({axis:'hands',v:'both hands',n:PEOPLE.reduce((a,p)=>a+p.takes.filter(t=>t.hand==='both'&&gradeOf(t).g!=='rough').length,0)});return out.sort((a,b)=>a.n-b.n)}
+function renderLibrary(){const all=PEOPLE.reduce((a,p)=>a+total(p),0);const max=Math.max(1,...PEOPLE.map(total));const thin=thinByTag();const tmax=Math.max(1,...thin.map(x=>x.n));
+  $('lib').innerHTML=`<div class="lib-head"><h1>everyone</h1><span class="mono mute">${fmtH(all)} · ${PEOPLE.reduce((a,p)=>a+p.takes.length,0)} takes · ${fmtH(PEOPLE.reduce((a,p)=>a+p.takes.filter(t=>NOW-t.t<7*DAY).reduce((x,t)=>x+t.sec,0),0))} this week</span></div>
+  <div class="people">${PEOPLE.map(p=>`<button class="person" data-p="${p.id}"><div class="pic tone"><img class="art" src="${p.art}" alt=""></div><div><div class="n">${p.name}</div><div class="h">${p.takes.length?`${fmtH(total(p))} · ${p.takes.length} takes · last ${Math.floor((NOW-p.takes[0].t)/3600000)} h ago`:'nothing yet'}</div><div class="bar"><i style="width:${total(p)/max*100}%"></i></div>${gradeBar(p.takes)}<div class="h">${(()=>{const m=gradeMix(p.takes);return `clean ${m.clean} · fine ${m.fine} · rough ${m.rough}`})()}</div></div></button>`).join('')}</div>
+  <div class="two"><div><h2 class="h2">what's thin</h2><div class="thin">${thin.slice(0,9).map(x=>`<div><span>${x.v}</span><div class="bar"><i style="width:${x.n/tmax*100}%"></i></div><span class="n">${x.n} · ${x.axis}</span></div>`).join('')}</div>
+  <h2 class="h2">by piece</h2><div class="missing"><span></span><span class="k">right</span><span class="k">left</span>${livePieces().filter(b=>!b.hands.includes('both')).map(b=>`<span>${b.title}</span>`+['right','left'].map(h=>`<span class="c">${PEOPLE.map(p=>`<i class="${done(p,b,h)>=GOAL?'y':''}" title="${p.name}"></i>`).join('')}</span>`).join('')).join('')}</div></div>
+  <div></div></div>`;
+  document.querySelectorAll('.person').forEach(b=>b.onclick=()=>openPerson(PEOPLE.find(p=>p.id===b.dataset.p)))}
+function openPerson(p){const days=[];for(let i=13;i>=0;i--){const m=p.takes.filter(t=>Math.floor((NOW-t.t)/DAY)===i).reduce((a,t)=>a+t.sec,0)/60;days.push({d:new Date(NOW-i*DAY).getDate(),m})}
+  $('lib').innerHTML=`<div class="lib-head"><button class="link" id="lib-back">← everyone</button><h1>${p.name}</h1><span class="mono mute">${fmtH(total(p))} · ${p.takes.length} takes · ${streak(p)} days in a row</span></div>
+  <div class="days">${days.map(x=>`<div data-d="${x.d}" ${x.m?`data-m="1"`:''} class="${x.m>20?'m4':x.m>12?'m3':x.m>5?'m2':''}" title="${Math.round(x.m)} min"></div>`).join('')}</div>
+  <div class="chips"><span class="mono mute">grade</span>${['all','clean','fine','rough'].map(g=>`<button data-g="${g}" class="${(S.gradeFilter||'all')===g?'on':''}">${g}${g==='all'?'':' '+gradeMix(p.takes)[g]}</button>`).join('')}</div>
+  <table class="takes"><thead><tr><th></th><th>when</th><th>piece</th><th>hand</th><th>length</th><th>repeats</th><th>grade</th><th>with</th><th></th></tr></thead><tbody>${p.takes.filter(t=>!S.gradeFilter||S.gradeFilter==='all'||gradeOf(t).g===S.gradeFilter).slice(0,40).map((t)=>`<tr class="take" data-i="${p.takes.indexOf(t)}"><td><img class="thumb" src="${takeDrawing(t)}" alt=""></td><td class="mono mute">${new Date(t.t).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td><td>${t.piece.title}<span class="mono mute"> v${t.pieceVersion}</span></td><td class="mono">${t.hand}</td><td class="mono">${fmtC(t.sec)}</td><td class="mono">${t.piece.free?'—':t.reps}</td><td><span class="pill ${gradeOf(t).g}" title="${gradeOf(t).why}">${gradeOf(t).g}</span></td><td class="mono mute">${t.helper||'—'}</td><td class="mono" style="color:var(--lilac)">scrub →</td></tr>`).join('')}</tbody></table>`;
+  $('lib-back').onclick=renderLibrary;document.querySelectorAll('tr.take').forEach(r=>r.onclick=()=>openTake(p,p.takes[+r.dataset.i]));$('lib').querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{S.gradeFilter=b.dataset.g;openPerson(p)})}
+let scrubRaf=0;
+function openTake(p,t){show('library');const dur=t.sec;const cuts=[];const r=rng(t.t%1000);for(let i=0;i<t.redos;i++){const a=r()*dur;cuts.push([a,Math.min(dur,a+10+r()*20)])}const sc=scenarioFor(t.piece);
+  $('lib').innerHTML=`<div class="lib-head"><button class="link" id="lib-back">← ${p.name}</button><h1>${t.piece.title}</h1><span class="mono mute">${p.name} · ${t.hand} · ${new Date(t.t).toLocaleString('en-GB',{weekday:'long',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span></div>
+  <div class="takehead"><div class="drawing tone"><img src="${takeDrawing(t)}" alt=""></div><div><div class="tl-row"><span class="pill ${gradeOf(t).g}" title="${gradeOf(t).why}">${gradeOf(t).g} · ${gradeOf(t).why}</span><span class="mono">${fmtC(dur)}</span><span class="mono">${t.piece.free?'free':t.reps+' good repeats'}</span><span class="mono">${t.redos} redo${t.redos===1?'':'s'}</span><span class="mono">${t.piece.title.toLowerCase()} v${t.pieceVersion}</span><span class="mono">${STATION.gloves.right.brand} glove</span><span class="mono">probe ${STATION.probe} · ${STATION.preset}</span><span class="mono">${sc.cams.join(' + ')} camera${sc.cams.length>1?'s':''}</span><span class="mono">${t.helper?'helped by '+t.helper:'alone'}</span></div>${t.note?`<p style="margin:.6em 0 0;font-style:italic">${t.note}</p>`:''}${t.notes&&t.notes.length?`<div class="station-notes" style="color:var(--mute)">${t.notes.slice(-6).map(n=>`<div><b style="color:var(--lilac-deep)">${fmtC(n.t)}</b><span>${n.text}</span></div>`).join('')}</div>`:''}</div></div>
+  <div class="scrub"><div class="tile43 tone light"><video id="sv" src="data/coach.mp4" muted playsinline preload="auto"></video><span class="tag">webcam</span></div><div class="tile43 hand"><canvas id="sh" width="600" height="375"></canvas><span class="tag">hand · ${t.hand}</span></div><div class="tile43 tone light"><canvas id="su" width="320" height="200"></canvas><span class="tag">ultrasound</span></div><div class="tile43" style="background:#fff;border:1px solid var(--line)"><canvas id="sf" width="600" height="375"></canvas><span class="tag">${sc.force?'force · five fingers':'force · not in this take'}</span></div></div>
+  <div class="timeline"><div class="cuts">${cuts.map(c=>`<i style="left:${c[0]/dur*100}%;width:${(c[1]-c[0])/dur*100}%" title="redone"></i>`).join('')}</div><input type="range" id="scrub" min="0" max="${dur}" step="0.1" value="0"><div class="marks"><span>0:00</span><span id="scrub-t">0:00</span><span>${fmtC(dur)}</span></div><div class="tl-row"><button class="link" id="scrub-play">▶ play</button><span class="mono">amber: redone, not saved</span></div></div>`;
+  $('lib-back').onclick=()=>openPerson(p);
+  const sv=$('sv'),sh=$('sh'),su=$('su'),sf=$('sf'),sl=$('scrub');let playing=false,last=performance.now();
+  function drawF(){const ctx=sf.getContext('2d');const w=sf.width,h=sf.height;ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);if(!sc.force){ctx.fillStyle='#8a8a8a';ctx.font='13px Source Code Pro,monospace';ctx.fillText('no force object in this take',16,24);return}const rr=rng(t.t%777);const cols=['#8888ff','#d9a9ea','#2b40d8','#e3a33a','#141414'];
+    for(let f=0;f<5;f++){ctx.beginPath();for(let x=0;x<w;x++){const u=x/w*dur;const v=Math.max(0,Math.sin(u*(.09+f*.012)+f)*Math.sin(u*.031+f*2))*12+rr()*.3;const y=h-10-v*(h-40)/14;x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle=cols[f];ctx.lineWidth=1.5;ctx.stroke()}
+    const x=(+sl.value)/dur*w;ctx.strokeStyle='#cc4444';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();ctx.fillStyle='#8a8a8a';ctx.font='11px Source Code Pro,monospace';ctx.fillText('N',6,14);ctx.fillText('0',6,h-4)}
+  function frame(now){const v=+sl.value;if(playing){const nv=v+(now-last)/1000;sl.value=nv>=dur?0:nv}last=now;const tt=+sl.value;$('scrub-t').textContent=fmtC(tt);
+    if(Math.abs(sv.currentTime-(tt%20))>.4)sv.currentTime=tt%20;const ctx=sh.getContext('2d');ctx.clearRect(0,0,sh.width,sh.height);drawHand(ctx,frameAt(tt),Object.assign(handView(sh.width,sh.height,t.hand),{s:sh.height/300,cy:sh.height*.9}),'#fff',{w:7});drawUS(su,tt,'good');drawF();scrubRaf=requestAnimationFrame(frame)}
+  cancelAnimationFrame(scrubRaf);scrubRaf=requestAnimationFrame(frame);
+  $('scrub-play').onclick=()=>{playing=!playing;$('scrub-play').textContent=playing?'❚❚ pause':'▶ play';if(playing)sv.play().catch(()=>{});else sv.pause()}}
+
+/* ---------- repertoire: the master list of pieces, and where new ones are made ---------- */
+let EDIT=null;
+function renderRep(){const f=S.repFilter;const list=PIECES.filter(b=>(!f.set||b.set===f.set)&&Object.keys(TAGS).every(k=>!f[k]||b.tags[k]===f[k]));
+  const sel=(name,opts,val,label)=>`<label>${label} <select data-f="${name}"><option value="">any</option>${opts.map(o=>`<option ${o.id?(o.id===val?'selected':''):(o===val?'selected':'')} value="${o.id||o}">${o.name||o}</option>`).join('')}</select></label>`;
+  $('rep').innerHTML=`<div class="lib-head"><h1>layers</h1><span class="mono mute">${livePieces().length} live · ${PIECES.filter(b=>b.retired).length} retired · ${PEOPLE.reduce((a,p)=>a+p.takes.length,0)} takes</span></div>
+  <div class="filters">${sel('set',SETS,f.set,'set')}${Object.keys(TAGS).map(k=>sel(k,TAGS[k],f[k],k)).join('')}<button class="play" id="rep-new" style="margin-left:auto;font-size:14px;padding:.45em 1em">+ new piece</button></div>
+  <div id="rep-form"></div>
+  <div class="cards grid" id="rep-cards" style="margin-top:1.2em">${list.map(b=>card(b,null,null,{everyone:true})).join('')}</div>`;
+  $('rep').querySelectorAll('select[data-f]').forEach(s=>s.onchange=()=>{S.repFilter[s.dataset.f]=s.value;renderRep()});
+  $('rep-new').onclick=()=>{EDIT=null;renderForm()};
+  $('rep-cards').querySelectorAll('.card').forEach(c=>c.onclick=()=>{EDIT=PIECES.find(b=>b.id===c.dataset.b);renderForm();$('rep-form').scrollIntoView({behavior:'smooth',block:'start'})})}
+let DRAFT=null;
+function draftPiece(title){const t=title.toLowerCase();const has=(...k)=>k.some(w=>t.includes(w));const T=(moves,load,pace)=>({moves,load,pace,guidance:'demonstrated'});
+  if(has('wave'))return {verb:'Wave at the camera like you mean it.',steps:['raise the hand','wave twice','lower it'],tags:T('wrist','nothing in hand','natural'),rubric:'The wrist carries the wave; the fingers stay relaxed and slightly apart. Two clear waves, then the hand comes down to rest.'};
+  if(has('pinch','thumb','tip'))return {verb:'Touch each fingertip to your thumb, then open.',steps:['the index finger to the thumb','the middle finger','the ring finger','the little finger','open'],tags:T('thumb','nothing in hand','natural'),rubric:RUBRICS.pinch};
+  if(has('squeeze','grip','hold','press'))return {verb:'Squeeze the object, hold it, let it go.',steps:['squeeze','hold','let go'],tags:T('grasp','force object','slow with holds'),rubric:RUBRICS.squeeze};
+  if(has('wrist','turn','twist'))return {verb:'Turn your wrist as far as it goes, both ways.',steps:['turn in','turn out','bend down','bend up'],tags:T('wrist','nothing in hand','natural'),rubric:RUBRICS.wrist};
+  if(has('type','key'))return {verb:'Type a message to someone you like.',steps:['type away'],tags:{moves:'fine task',load:'keyboard',pace:'fast',guidance:'prompted'},rubric:'Ordinary typing at the person\'s own speed; the hand stays over the keys. Nothing to match, only that the fingers keep moving.'};
+  if(has('pour','glass','cup','drink'))return {verb:'Pour water from a bottle into a glass. Drink it.',steps:['pour','drink'],tags:{moves:'grasp',load:'everyday object',pace:'natural',guidance:'prompted'},rubric:'A real pour and a real drink. The grasp around the bottle, the tilt and the lift to the mouth are the movements that matter.'};
+  if(has('open','close','fist','spread'))return {verb:'Open and close your hand, slowly.',steps:['open wide','close slowly','hold a moment','open again'],tags:T('whole hand','nothing in hand','slow with holds'),rubric:RUBRICS.open};
+  return {verb:`${title}, slowly, the way the demonstration shows.`,steps:['get ready','do it once','rest','do it again'],tags:T('whole hand','nothing in hand','natural'),rubric:`${title}: the demonstration is the reference. The hand follows it in shape and in pace, with a short rest between repeats.`}}
+function renderForm(){const e=EDIT||Object.assign({title:'',verb:'',set:'five',min:5,steps:['',''],hands:['right','left'],tags:{moves:'whole hand',load:'nothing in hand',pace:'natural',guidance:'demonstrated'},art:ART.b,truth:{tolerance:'normal',rubric:'',rules:{pace:true,fingers:true,coupling:true,motion:true},refs:{}}},DRAFT||{});
+  const sel=(k,opts,val)=>`<select data-k="${k}">${opts.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
+  const following=PEOPLE.flatMap(p=>p.takes.filter(t=>EDIT&&t.piece.id===EDIT.id));const gm=gradeMix(following);
+  const refSlots=[['placement','probe placement'],['setting','the setting'],['object','the object']];
+  $('rep-form').innerHTML=`<div class="form"><label class="wide">${EDIT?`editing <b>${EDIT.title}</b> · version ${EDIT.version} · by ${EDIT.by} · demonstration ${fmtC(EDIT.demo.dur)} with ${EDIT.demo.marks.length} marks`:`a new piece ${DRAFT?'<span class="drafted">drafted · read every line</span>':'· <button class="link" id="f-draft" type="button">draft it from its name</button>'}`}</label>
+  <label>name<input type="text" data-k="title" value="${e.title.replace(/"/g,'&quot;')}" placeholder="Pinch and release"></label>
+  <label>the one line a participant reads<input type="text" data-k="verb" value="${e.verb.replace(/"/g,'&quot;')}" placeholder="Touch each fingertip to your thumb, then open."></label>
+  <label>set<select data-k="set">${SETS.map(s=>`<option value="${s.id}" ${s.id===e.set?'selected':''}>${s.name}</option>`).join('')}</select></label>
+  <label>minutes<input type="text" data-k="min" value="${e.min}" style="font-family:var(--mono)"></label>
+  <label class="wide">steps, one per line<textarea data-k="steps">${e.steps.join('\n')}</textarea></label>
+  <label>what moves ${sel('moves',TAGS.moves,e.tags.moves)}</label><label>load ${sel('load',TAGS.load,e.tags.load)}</label><label>pace ${sel('pace',TAGS.pace,e.tags.pace)}</label><label>guidance ${sel('guidance',TAGS.guidance,e.tags.guidance)}</label>
+  <label class="wide">hands<div class="chk">${['right','left','both'].map(h=>`<label><input type="checkbox" data-h="${h}" ${e.hands.includes(h)?'checked':''}>${h}</label>`).join('')}<span class="mono mute">left takes mirror the right demonstration</span></div></label>
+  <div class="truth"><div class="h">ground truth</div>
+    <label>the demonstration<span style="color:var(--ink)">${EDIT?`v${EDIT.version} · ${fmtC(EDIT.demo.dur)} · ${EDIT.demo.marks.length} marks · by ${EDIT.by} · ${new Date(EDIT.made).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`:'none yet; record it below'}</span></label>
+    <label>tolerance${sel('tolerance',['tight','normal','loose'],e.truth.tolerance)}</label>
+    <label class="wide">what right looks like<span class="mono mute"><button class="link" id="f-rubric" type="button">draft with help</button></span><textarea data-k="rubric" placeholder="Describe the movement the way you'd tell a friend what to watch for.">${(e.truth.rubric||'').replace(/</g,'&lt;')}</textarea></label>
+    <label class="wide">graded on<div class="chk">${[['pace','pace against the demonstration'],['fingers','each finger where the purple hand has it'],['coupling','the probe stayed on skin and in place'],['motion','the hand kept moving']].map(([k,l])=>`<label><input type="checkbox" data-r="${k}" ${e.truth.rules[k]?'checked':''}>${l}</label>`).join('')}</div></label>
+    <label class="wide">reference pictures<div class="refs">${refSlots.map(([k,l])=>`<div class="ref">${e.truth.refs[k]?`<img src="${e.truth.refs[k]}" alt="">`:''}<span>${e.truth.refs[k]?l+' · replace':l+' · add a picture'}</span><input type="file" accept="image/*" data-ref="${k}"></div>`).join('')}</div></label>
+    ${EDIT?`<label class="wide">takes following this piece<span style="color:var(--ink)">${following.length} takes · clean ${gm.clean} · fine ${gm.fine} · rough ${gm.rough}</span>${gradeBar(following)}</label>`:''}
+  </div>
+  <div class="actions"><button class="go" id="f-demo">● record the demonstration</button><button class="play" id="f-save" style="font-size:14px">save the words only</button>${EDIT?`<button class="link" id="f-retire">${EDIT.retired?'bring back':'retire'}</button>`:''}<button class="link" id="f-cancel">cancel</button></div></div>`;
+  const read=()=>{const g=k=>$('rep-form').querySelector(`[data-k="${k}"]`).value;const hands=[...$('rep-form').querySelectorAll('[data-h]:checked')].map(i=>i.dataset.h);const steps=g('steps').split('\n').map(s=>s.trim()).filter(Boolean);
+    if(!g('title').trim()||!g('verb').trim()||!steps.length||!hands.length){strip('a piece needs a name, a line, a step and a hand.',{kind:'warn',ttl:3500});return null}
+    const rules={};$('rep-form').querySelectorAll('[data-r]').forEach(i=>rules[i.dataset.r]=i.checked);
+    const o={title:g('title').trim(),verb:g('verb').trim(),set:g('set'),min:Math.max(1,parseInt(g('min'))||5),steps,hands,tags:{moves:g('moves'),load:g('load'),pace:g('pace'),guidance:g('guidance')},truth:{tolerance:g('tolerance'),rubric:g('rubric').trim(),rules,refs:Object.assign({},e.truth.refs)}};o.free=o.tags.guidance==='free';return o};
+  const apply=()=>{const o=read();if(!o)return null;if(EDIT){const refs=Object.assign({},EDIT.truth.refs,o.truth.refs);Object.assign(EDIT,o);EDIT.truth.refs=refs;if(EDIT.demo.marks.length!==EDIT.steps.length)EDIT.demo.marks=marksFor(EDIT.steps.length);return EDIT}const p=piece(Object.assign({id:'p'+Date.now(),art:[ART.a,ART.b,ART.c,ART.d][PIECES.length%4],by:S.person.name,made:NOW},o));PIECES.push(p);DRAFT=null;return p};
+  const stash=()=>{const o=read();if(o&&!EDIT)DRAFT=Object.assign({},o,{truth:Object.assign({},o.truth,{refs:e.truth.refs})});return o};
+  const fd=$('f-draft');if(fd)fd.onclick=()=>{const title=$('rep-form').querySelector('[data-k="title"]').value.trim();if(!title){strip('give it a name first.',{kind:'warn',ttl:3000});return}const d=draftPiece(title);DRAFT={title,verb:d.verb,steps:d.steps,tags:d.tags,min:5,set:d.tags.load==='force object'?'object':d.tags.guidance==='prompted'?'free':'five',hands:['right','left'],truth:{tolerance:'normal',rubric:d.rubric,rules:{pace:true,fingers:d.tags.moves!=='grasp',coupling:true,motion:true},refs:{}}};renderForm();strip('drafted. read every line.',{ttl:3500})};
+  $('f-rubric').onclick=()=>{const title=$('rep-form').querySelector('[data-k="title"]').value.trim()||'this piece';const d=draftPiece(title);$('rep-form').querySelector('[data-k="rubric"]').value=d.rubric};
+  $('rep-form').querySelectorAll('input[data-ref]').forEach(inp=>inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const refs=EDIT?EDIT.truth.refs:(DRAFT?(DRAFT.truth.refs=DRAFT.truth.refs||{}):(e.truth.refs));refs[inp.dataset.ref]=rd.result;if(!EDIT&&!DRAFT){const o=stash();if(o)DRAFT=Object.assign({},o,{truth:Object.assign({},o.truth,{refs})})}renderForm()};rd.readAsDataURL(f)});
+  $('f-save').onclick=()=>{const p=apply();if(p){strip(`saved: ${p.title}.`,{ttl:3000});EDIT=null;renderRep()}};
+  $('f-demo').onclick=()=>{const p=apply();if(!p)return;S.piece=p;S.hand=p.hands.includes('both')?'both':p.hands[0];S.mode='demo';show('record')};
+  $('f-cancel').onclick=()=>{EDIT=null;DRAFT=null;$('rep-form').innerHTML=''};
+  if(EDIT)$('f-retire').onclick=()=>{EDIT.retired=!EDIT.retired;strip(EDIT.retired?`${EDIT.title} is retired.`:`${EDIT.title} is back.`,{ttl:3000});EDIT=null;renderRep()}}
+
+/* ---------- station: inputs register, operators choose, scenarios decide ---------- */
+function renderStation(){const st=STATION;const rows=[];
+  for(const side of ['right','left']){const g=st.gloves[side];rows.push(`<div class="inrow"><i class="dot ${g.live?'':'wait'}"></i><div><div class="n">${side} hand · pose glove <select data-glove="${side}"><option value="manus" ${g.brand==='manus'?'selected':''}>MANUS</option><option value="wuji" ${g.brand==='wuji'?'selected':''}>wuji</option><option value="none" ${g.brand==='none'?'selected':''}>none</option></select></div><div class="s">${g.brand==='manus'?`MANUS ${g.serial} · ${g.live?`live · battery ${g.battery}%`:'not plugged in'}`:g.brand==='wuji'?`wuji ${g.wujiSerial||'(none seen)'} · ${g.wujiUser?`knows ${g.wujiUser}'s hand`:'has met nobody yet'}`:'no pose glove on this side'}</div></div><span class="s">${g.live?'in use':'—'}</span></div>`)}
+  rows.push(`<div class="inrow"><i class="dot"></i><div><div class="n">ultrasound probe <select data-k="probe">${st.probes.map(p=>`<option ${p.id===st.probe?'selected':''} ${p.live?'':'disabled'}>${p.id}${p.live?'':' · not here'}</option>`).join('')}</select> preset <select data-k="preset">${st.presets.map(p=>`<option ${p===st.preset?'selected':''}>${p}</option>`).join('')}</select></div><div class="s">butterfly · battery ${st.probes.find(p=>p.id===st.probe).battery}%</div></div><span class="s">in use</span></div>`);
+  rows.push(`<div class="inrow"><i class="dot ${st.force.zeroedAt?'':'wait'}"></i><div><div class="n">force object</div><div class="s">${st.force.sensors} sensors · ${st.force.fingers.map((f,i)=>`${i+1} ${f}`).join(' · ')} · ${st.force.zeroedAt?'zeroed today':'not zeroed today'}</div></div><button class="x lilac" id="zero-now">zero now</button></div>`);
+  for(const c of st.cameras)rows.push(`<div class="inrow" data-cam="${c.id}"><i class="dot ${c.live?'':'wait'}"></i><div><div class="n">camera <select data-role="${c.id}">${st.cameraRoles.map(r=>`<option ${r===c.role?'selected':''}>${r}</option>`).join('')}</select></div><div class="s">${c.live?'live · 1080p 30 fps':'not plugged in'}</div></div><button class="x" data-rm="${c.id}">remove</button></div>`);
+  rows.push(`<div class="inrow"><i class="dot ${st.mic.on?'':'wait'}"></i><div><div class="n">microphone <select data-k="mic"><option ${st.mic.on?'selected':''}>on</option><option ${st.mic.on?'':'selected'}>off</option></select></div><div class="s">the room</div></div><span class="s">${st.mic.on?'in use':'off'}</span></div>`);
+  rows.push(`<div class="inrow"><i class="dot"></i><div><div class="n">hand model <select data-k="handModel"><option value="own" ${st.handModel==='own'?'selected':''}>own hand</option><option value="stock" ${st.handModel==='stock'?'selected':''}>stock hand</option></select></div></div><span class="s">display</span></div>`);
+  rows.push(`<div class="inrow"><i class="dot ${st.storage.roomMin<60?'warn':''}"></i><div><div class="n">storage</div><div class="s">${fmtH(st.storage.roomMin*60)} of room · ${st.storage.unmoved} takes not yet on the server · last moved ${Math.round((NOW-st.storage.lastMoved)/DAY)} days ago</div></div><button class="x lilac" id="move-now">move finished takes now</button></div>`);
+  const probeRows=st.probes.map(pr=>`<div class="probe-row" data-probe="${pr.id}"><div style="display:flex;gap:.8em;align-items:baseline;flex-wrap:wrap"><b>butterfly ${pr.id}</b><span class="mono mute">${pr.live?`here · battery ${pr.battery}%`:'not here'}${pr.id===st.probe?' · in use · '+st.preset:''}</span><span class="mono mute" style="margin-left:auto">reference frames: ${pr.id===st.probe?PEOPLE.filter(p=>p.takes.length).length:0} people</span></div>
+    <div class="refs">${[['arm','on the arm'],['holder','the holder and strap'],['gel','the gel and standoff']].map(([k,l])=>`<div class="ref">${pr.photos[k]?`<img src="${pr.photos[k]}" alt="">`:''}<span>${pr.photos[k]?l+' · replace':l+' · add a picture'}</span><input type="file" accept="image/*" data-pphoto="${k}"></div>`).join('')}</div>
+    <textarea data-pdesc placeholder="Where it sits, how it is held, how much gel. The next operator reads this.">${pr.description.replace(/</g,'&lt;')}</textarea>
+    <div><button class="link" data-pdraft style="font-size:13px">describe from the pictures</button></div></div>`).join('');
+  $('stn').innerHTML=`<div class="lib-head"><h1>navi</h1><span class="mono mute">silent 2</span></div>
+  <div class="stn"><div><h2 class="h2">inputs</h2><div class="inlist">${rows.join('')}</div><button class="addcam" id="addcam" ${st.cameras.length>=4?'disabled':''}>+ add a camera <span class="mono mute">${st.cameras.length} of 4</span></button></div>
+  <div><h2 class="h2">what each set records</h2><table class="scen"><tr><th>set</th><th class="c">pose glove</th><th class="c">probe</th><th class="c">force object</th><th class="c">mic</th>${st.cameraRoles.map(r=>`<th class="c">${r}</th>`).join('')}</tr>${SETS.map(r=>`<tr><td>${r.name}</td><td class="c">●</td><td class="c">●</td><td class="c"><input type="checkbox" data-s="${r.id}" data-k="force" ${SCEN[r.id].force?'checked':''}></td><td class="c"><input type="checkbox" data-s="${r.id}" data-k="mic" ${SCEN[r.id].mic?'checked':''}></td>${st.cameraRoles.map(role=>`<td class="c"><input type="checkbox" data-s="${r.id}" data-cam="${role}" ${SCEN[r.id].cams.includes(role)?'checked':''}></td>`).join('')}</tr>`).join('')}</table>
+  <h2 class="h2">last glove worn</h2><p class="mute" style="font-size:14px;margin:.3em 0 0">${PEOPLE.map(p=>`${p.name}: ${p.lastGlove}`).join(' · ')}</p>
+  <h2 class="h2">probes</h2><div class="inlist">${probeRows}</div></div></div>`;
+  $('stn').querySelectorAll('input[data-pphoto]').forEach(inp=>inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const pr=st.probes.find(x=>x.id===inp.closest('[data-probe]').dataset.probe);const rd=new FileReader();rd.onload=()=>{pr.photos[inp.dataset.pphoto]=rd.result;renderStation()};rd.readAsDataURL(f)});
+  $('stn').querySelectorAll('textarea[data-pdesc]').forEach(t=>t.onchange=()=>{st.probes.find(x=>x.id===t.closest('[data-probe]').dataset.probe).description=t.value});
+  $('stn').querySelectorAll('button[data-pdraft]').forEach(b=>b.onclick=()=>{const pr=st.probes.find(x=>x.id===b.closest('[data-probe]').dataset.probe);const n=Object.keys(pr.photos).length;pr.description=`Butterfly ${pr.id} on the right forearm, palm side, about four finger-widths below the elbow crease, marker dot toward the elbow. Silicone standoff 45 mm in the printed holder; strap snug, not tight; a thumb of gel spread under the whole face. Preset ${st.preset}.${n?` Written from ${n} picture${n>1?'s':''}.`:' No pictures yet; this is the stock description.'}`;renderStation();strip('drafted. make it true.',{ttl:3500})});
+  $('stn').querySelectorAll('select[data-glove]').forEach(s=>s.onchange=()=>{st.gloves[s.dataset.glove].brand=s.value;renderStation()});
+  $('stn').querySelectorAll('select[data-k]').forEach(s=>s.onchange=()=>{const k=s.dataset.k;if(k==='mic')st.mic.on=s.value==='on';else if(k==='probe')st.probe=s.value;else if(k==='preset'){st.preset=s.value;strip(`preset: ${s.value}. models trained on the old one sit out.`,{ttl:4000})}else st[k]=s.value;renderStation()});
+  $('stn').querySelectorAll('select[data-role]').forEach(s=>s.onchange=()=>{st.cameras.find(c=>c.id===s.dataset.role).role=s.value;renderStation()});
+  $('stn').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{st.cameras=st.cameras.filter(c=>c.id!==b.dataset.rm);renderStation()});
+  $('stn').querySelectorAll('table.scen input').forEach(i=>i.onchange=()=>{const s=SCEN[i.dataset.s];if(i.dataset.k==='force')s.force=i.checked;else if(i.dataset.k==='mic')s.mic=i.checked;else{s.cams=i.checked?[...s.cams,i.dataset.cam]:s.cams.filter(c=>c!==i.dataset.cam)}});
+  $('zero-now').onclick=()=>{st.force.zeroedAt=NOW;strip('zeroed.',{ttl:2500});renderStation()};
+  $('move-now').onclick=()=>{const n=st.storage.unmoved;st.storage.unmoved=0;st.storage.lastMoved=NOW;st.storage.roomMin+=n*30;strip(`moving ${n} takes to the server.`,{ttl:3500});renderStation()};
+  $('addcam').onclick=()=>{if(st.cameras.length>=4)return;const used=st.cameras.map(c=>c.role);const role=st.cameraRoles.find(r=>!used.includes(r))||'side';st.cameras.push({id:'cam-'+(Date.now()%10000),role,live:true,src:[ART.b,ART.d,ART.net][st.cameras.length%3]});renderStation();strip(`camera added as ${role}.`,{ttl:3000})}}
+
+/* ---------- operator pages: hold the leaf, or press o ---------- */
+/* the wired panel: everything connected, from the dots in the top bar */
+function renderWired(){const h=computeHealth(),st=STATION,rows=[];const L=LIVE.on&&LIVE.status;
+  for(const side of ['right','left']){const g=st.gloves[side];const live=side===S.hand?h.glove==='live':g.live;const mins=Math.round((NOW-g.calibratedAt)/60000);rows.push({th:`<div class="th none">glove</div>`,n:`${side} ${g.brand} glove`,dot:live?(mins>30?'warn':''):'stop',s:live?`live · ${L&&L.manus?Math.round(L.manus.rate_hz)+' Hz · ':''}battery ${g.battery}% · calibrated ${mins<1?'just now':mins+' min ago'}${g.brand==='wuji'?` · knows ${g.wujiUser||'nobody'}`:''}`:'disconnected · press its button',bad:!live,act:live&&mins>30?['calibrate now','calib-'+side]:null})}
+  const pr=st.probes.find(x=>x.id===st.probe);rows.push({th:`<div class="th"><canvas id="w-us" width="168" height="104"></canvas></div>`,n:`butterfly ${st.probe}`,dot:h.probe==='off'?'stop':h.probe==='moved'?'warn':'',s:h.probe==='off'?'not on skin · add gel, press on':h.probe==='moved'?`on skin · image looks different from last time · ${st.preset}`:`on skin · ${L&&L.ultrasound?Math.round(L.ultrasound.rate_hz)+' Hz · ':''}${st.preset} · battery ${pr.battery}%`,bad:h.probe!=='good',act:['placement','gear']});
+  rows.push({th:`<div class="th none">object</div>`,n:'force object',dot:st.force.zeroedAt?'':'wait',s:`${st.force.sensors} sensors · ${st.force.fingers.join(' ')} · ${st.force.zeroedAt?'zeroed today':'not zeroed today'}${S.sim.limit?' · sensor 3 at its limit':''}`,bad:!st.force.zeroedAt||S.sim.limit,act:['zero now','zero']});
+  for(const c of st.cameras)rows.push({th:c.src==='video'?`<div class="th"><img src="${ART.b}" alt="" data-wcam="${c.role}"></div>`:`<div class="th"><img src="${c.src}" alt=""></div>`,n:`${c.role} camera`,dot:c.live?'':'wait',s:c.live?'live · 1080p 30 fps':'not plugged in',bad:!c.live,act:['roles','gear']});
+  rows.push({th:`<div class="th none">mic</div>`,n:'microphone',dot:st.mic.on?'':'wait',s:st.mic.on?'on · the room':'off',bad:false,act:null});
+  rows.push({th:`<div class="th none">disk</div>`,n:'disk',dot:h.disk==='low'?'warn':'',s:`${fmtH(st.storage.roomMin*60)} of room · ${st.storage.unmoved} takes not yet on the server`,bad:h.disk==='low',act:st.storage.unmoved?['move takes now','move']:null});
+  $('wired-body').innerHTML=rows.map(r=>`<div class="wrow">${r.th}<div><div class="n"><i class="dot ${r.dot}"></i>${r.n}</div><div class="s ${r.bad?'bad':''}">${r.s}</div></div>${r.act?`<button class="act" data-act="${r.act[1]}">${r.act[0]}</button>`:'<span></span>'}</div>`).join('')+(L?`<div class="mono" style="color:var(--lilac-deep);margin-top:.6em">live · recorder ${L.state}${L.recording?' · recording':''}</div>`:'');
+  const us=$('w-us');if(us){if(LIVE.on&&LIVE.image){const ctx=us.getContext('2d');const ih=us.height,iw=LIVE.image.width*ih/LIVE.image.height;ctx.fillStyle='#000';ctx.fillRect(0,0,us.width,us.height);ctx.drawImage(LIVE.image,(us.width-iw)/2,0,iw,ih)}else drawUS(us,performance.now()/1000,h.probe)}
+  $('wired-body').querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const a=b.dataset.act;if(a==='gear'){closeWired();renderStation();show('station')}else if(a==='zero'){st.force.zeroedAt=NOW;renderWired()}else if(a==='move'){st.storage.roomMin+=st.storage.unmoved*30;st.storage.unmoved=0;st.storage.lastMoved=NOW;renderWired()}else if(a.startsWith('calib-')){st.gloves[a.slice(6)].calibratedAt=NOW;refreshDots();renderWired()}})}
+function openWired(){$('wired').hidden=false;renderWired()}function closeWired(){$('wired').hidden=true}
+$('top-dots').onclick=e=>{e.stopPropagation();$('wired').hidden?openWired():closeWired()};$('wired-close').onclick=closeWired;$('wired').onclick=e=>e.stopPropagation();document.addEventListener('click',e=>{if(!$('wired').hidden&&!e.target.closest('#wired')&&!e.target.closest('#top-dots'))closeWired()});
+
+/* ---------- live: the real recorder over its Foxglove WebSocket (?live=1 or ?live=ws://host:port) ----------
+   Topics as the recorder names them: /capture/status (json), /hand/pose/manus (json), /ultrasound/image
+   (protobuf foxglove.RawImage), /force/measured (json), /camera/<role>/image (protobuf foxglove.CompressedImage).
+   Commands go to /capture/control as a client-published json channel. Nothing here is required for the page to run. */
+const LIVE={on:false,url:null,ws:null,chans:{},subs:{},status:null,pose:null,hist:[],image:null,connected:false,ctrl:null,selfDemo:false,tries:0};
+function liveInit(){const q=new URLSearchParams(location.search);const u=q.get('live');if(!u)return;LIVE.on=true;LIVE.url=u==='1'?'ws://127.0.0.1:8765':u;LIVE.selfDemo=q.get('selfdemo')==='1';liveConnect()}
+function liveConnect(){let ws;try{ws=new WebSocket(LIVE.url,['foxglove.sdk.v1','foxglove.websocket.v1'])}catch(e){return liveRetry()}ws.binaryType='arraybuffer';LIVE.ws=ws;
+  ws.onopen=()=>{LIVE.connected=true;LIVE.tries=0;refreshDots()};
+  ws.onclose=()=>{LIVE.connected=false;LIVE.status=null;LIVE.ctrl=null;refreshDots();liveRetry()};
+  ws.onerror=()=>{};
+  ws.onmessage=ev=>{if(typeof ev.data==='string'){const m=JSON.parse(ev.data);
+      if(m.op==='serverInfo'){if((m.capabilities||[]).includes('clientPublish')){LIVE.ctrl=1;ws.send(JSON.stringify({op:'advertise',channels:[{id:1,topic:'/capture/control',encoding:'json',schemaName:'silent.CaptureCommand'}]}))}}
+      else if(m.op==='advertise'){const subs=[];for(const ch of m.channels){LIVE.chans[ch.id]=ch;const want=ch.topic==='/capture/status'||ch.topic==='/hand/pose/manus'||ch.topic==='/ultrasound/image'||ch.topic==='/force/measured'||/^\/camera\/[^/]+\/image$/.test(ch.topic);if(want){const sid=ch.id;LIVE.subs[sid]=ch;subs.push({id:sid,channelId:ch.id})}}if(subs.length)ws.send(JSON.stringify({op:'subscribe',subscriptions:subs}))}
+      else if(m.op==='unadvertise'){for(const id of m.channelIds||[]){delete LIVE.chans[id];delete LIVE.subs[id]}}
+      return}
+    const dv=new DataView(ev.data);if(dv.getUint8(0)!==1)return;const sid=dv.getUint32(1,true);const ch=LIVE.subs[sid];if(!ch)return;const payload=new Uint8Array(ev.data,13);
+    if(ch.topic==='/capture/status'){LIVE.status=JSON.parse(new TextDecoder().decode(payload));refreshDots()}
+    else if(ch.topic==='/hand/pose/manus'){const m=JSON.parse(new TextDecoder().decode(payload));const by={};m.node_ids.forEach((id,i)=>by[id]=m.positions_m[i]);if(!by[0])return;const w=by[0];const pts=[];for(let i=0;i<25;i++){const q=by[i]||w;pts.push([(q[0]-w[0])*1000,(q[1]-w[1])*1000,(q[2]-w[2])*1000])}LIVE.pose=pts;LIVE.hist.push({at:performance.now(),pts});if(LIVE.hist.length>400)LIVE.hist.shift()}
+    else if(ch.topic==='/ultrasound/image'){liveImage(payload)}
+    else if(ch.topic==='/force/measured'){LIVE.force=JSON.parse(new TextDecoder().decode(payload))}
+    else if(ch.topic.startsWith('/camera/')){const f=pbFields(payload);const data=f.filter(x=>x.wire===2).sort((a,b)=>b.value.length-a.value.length)[0];if(data){const role=ch.topic.split('/')[2];const url=URL.createObjectURL(new Blob([data.value],{type:'image/jpeg'}));const img=$('cams').querySelector(`[data-role="${role}"]`);if(img){const old=img.src;img.src=url;if(old.startsWith('blob:'))URL.revokeObjectURL(old)}}}}}
+function liveRetry(){LIVE.tries++;setTimeout(liveConnect,Math.min(8000,800*LIVE.tries))}
+function livePoseAt(at){let best=null;for(const h of LIVE.hist){if(h.at<=at)best=h;else break}return best?best.pts:null}
+function liveSend(cmd){if(!LIVE.ws||LIVE.ws.readyState!==1||!LIVE.ctrl)return;const body=new TextEncoder().encode(JSON.stringify({request_id:'station-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1e6).toString(36),...cmd}));const buf=new Uint8Array(5+body.length);buf[0]=1;new DataView(buf.buffer).setUint32(1,1,true);buf.set(body,5);LIVE.ws.send(buf)}
+function pbFields(buf){const out=[];let i=0;const vint=()=>{let r=0,sh=0;for(;;){const b=buf[i++];r+=(b&127)*Math.pow(2,sh);sh+=7;if(!(b&128))break}return r};
+  while(i<buf.length){const tag=vint();const field=tag>>>3,wire=tag&7;if(wire===0)out.push({field,wire,value:vint()});else if(wire===1){out.push({field,wire,value:new DataView(buf.buffer,buf.byteOffset+i,8).getUint32(0,true)});i+=8}else if(wire===2){const n=vint();out.push({field,wire,value:buf.subarray(i,i+n)});i+=n}else if(wire===5){out.push({field,wire,value:new DataView(buf.buffer,buf.byteOffset+i,4).getUint32(0,true)});i+=4}else break}return out}
+function liveImage(payload){const f=pbFields(payload);const f32=f.filter(x=>x.wire===5).map(x=>x.value);const bytes=f.filter(x=>x.wire===2);const data=bytes.sort((a,b)=>b.value.length-a.value.length)[0];if(!data||f32.length<2)return;const width=f32[0],height=f32[1],step=f32[2]||width;const enc=bytes.map(x=>{try{return new TextDecoder().decode(x.value)}catch(e){return ''}}).find(t=>/^(mono8|mono16|32FC1|rgb8|bgr8|rgba8|bgra8)$/.test(t))||'mono8';
+  if(!LIVE.image||LIVE.image.width!==width||LIVE.image.height!==height){LIVE.image=document.createElement('canvas');LIVE.image.width=width;LIVE.image.height=height}
+  const ctx=LIVE.image.getContext('2d');const img=ctx.createImageData(width,height);const d=img.data,src=data.value;
+  if(enc==='mono8'){for(let y=0;y<height;y++)for(let x=0;x<width;x++){const v=src[y*step+x];const o=(y*width+x)*4;d[o]=v*.72+30;d[o+1]=v*.76+30;d[o+2]=Math.min(255,v*1.05+50);d[o+3]=255}}
+  else if(enc==='mono16'){for(let y=0;y<height;y++)for(let x=0;x<width;x++){const v=(src[y*step+x*2]|(src[y*step+x*2+1]<<8))>>8;const o=(y*width+x)*4;d[o]=v*.72+30;d[o+1]=v*.76+30;d[o+2]=Math.min(255,v*1.05+50);d[o+3]=255}}
+  else{for(let y=0;y<height;y++)for(let x=0;x<width;x++){const o=(y*width+x)*4,si=y*step+x*3;d[o]=src[si];d[o+1]=src[si+1];d[o+2]=src[si+2];d[o+3]=255}}
+  ctx.putImageData(img,0,0)}
+liveInit();
+
+/* ---------- wiring ---------- */
+$('hero-play').onclick=()=>pick(S.piece,S.hand);$('hero-free').onclick=()=>pick(PIECES.find(b=>b.id==='free'),S.hand==='both'?'right':S.hand);
+$('ready-back').onclick=()=>show('home');$('ready-go').onclick=()=>{if(!$('ready-go').disabled)show('record')};
+$('rec-stop').onclick=()=>{if(REC&&REC.acc>0){REC.ended=true;S.mode==='demo'?publishDemo():finishTake()}else{S.mode==='demo'?(S.mode='take',renderRep(),show('rep')):show('home')}};
+$('done-again').onclick=()=>pick(S.piece,S.hand);$('done-home').onclick=()=>{renderHome();show('home')};
+$('nav-record').onclick=()=>{renderHome();show('home')};$('nav-library').onclick=()=>{renderLibrary();show('library')};$('nav-rep').onclick=()=>{renderRep();show('rep')};$('nav-station').onclick=()=>{renderStation();show('station')};
+$('signout').onclick=signOut;$('chip').onclick=()=>{renderLibrary();show('library');openPerson(S.person)};
+document.querySelectorAll('#dev input').forEach(i=>i.onchange=()=>{S.sim[i.dataset.sim]=i.checked;refreshDots();if(S.screen==='ready')renderReady();if(S.screen==='record'&&(i.dataset.sim==='gloveOff'||i.dataset.sim==='probeOff')&&i.checked&&REC&&REC.running){REC.running=false;$('state').textContent='paused';setMood(1,'stop');note(i.dataset.sim==='gloveOff'?'paused: the glove disconnected':'paused: the probe left the skin')}});
+document.querySelectorAll('#dev button[data-dev]').forEach(b=>b.onclick=()=>{if(!REC||!PRO||!REC.running)return;if(b.dataset.dev==='assess'){startAssessment()}else{startCorrection({fix:'finger',finger:3,text:'the ring finger keeps falling short of the purple. let\'s do that step together.'})}});
+document.addEventListener('keydown',e=>{if(e.target&&e.target.matches&&e.target.matches('input,textarea,select'))return;const k=e.key;
+  if(k==='d'||k==='D'){$('dev').classList.toggle('on');return}
+  if(k==='Escape'&&!$('wired').hidden){closeWired();return}
+  if(S.screen==='record'){if(k===' '){e.preventDefault();toggleRun()}else if(k==='Enter'){e.preventDefault();markStep()}else if(k==='Backspace'){e.preventDefault();redo()}else if(k==='Escape'){if(REC&&REC.acc>0){REC.ended=true;S.mode==='demo'?publishDemo():finishTake()}else{S.mode==='demo'?(S.mode='take',renderRep(),show('rep')):show('home')}}}
+  else if(S.screen==='ready'&&k===' '){e.preventDefault();if(!$('ready-go').disabled)show('record')}
+  else if(S.screen==='home'&&k===' '){e.preventDefault();pick(S.piece,S.hand)}
+  else if(S.screen==='done'&&k===' '){e.preventDefault();pick(S.piece,S.hand)}});
+renderWho();refreshDots();
+window.__station={S,STATION,SCEN,PIECES,PEOPLE,live:LIVE,rec:()=>REC,finish:()=>{if(REC){REC.ended=true;S.mode==='demo'?publishDemo():finishTake()}}};
+</script>
+</body>
+</html>
